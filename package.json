@@ -8,20 +8,21 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
-    "fastify": "^4.28.0",
-    "@fastify/jwt": "^8.0.0",
     "@fastify/cors": "^9.0.0",
+    "@fastify/jwt": "^8.0.0",
     "@fastify/rate-limit": "^9.0.0",
-    "pg": "^8.11.0",
+    "dotenv": "^17.3.1",
+    "fastify": "^4.28.0",
     "ioredis": "^5.3.2",
+    "pg": "^8.11.0",
     "razorpay": "^2.9.0",
-    "zod": "^3.22.0",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
-    "tsx": "^4.0.0",
-    "typescript": "^5.4.0",
     "@types/node": "^20.0.0",
-    "@types/pg": "^8.11.0"
+    "@types/pg": "^8.11.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
   }
 }

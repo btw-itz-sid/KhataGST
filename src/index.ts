@@ -2,6 +2,7 @@
 // Server yahan se start hota hai
 // Ye file sabse pehle run hoti hai
 
+import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
@@ -40,6 +41,12 @@ server.register(rateLimit, {
 import { authRoutes } from "./routes/auth.js";
 
 server.register(authRoutes, { prefix: "/api/v1/auth" });
+
+import { businessRoutes } from "./routes/businesses.js";
+import { invoiceRoutes } from "./routes/invoices.js";
+
+server.register(businessRoutes, { prefix: "/api/v1/businesses" });
+server.register(invoiceRoutes, { prefix: "/api/v1/invoices" });
 
 // ── Health check route ───────────────────────────────────────
 server.get("/health", async () => {
