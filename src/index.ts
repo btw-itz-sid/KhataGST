@@ -40,10 +40,11 @@ server.register(rateLimit, {
 // Routes register karo
 import { authRoutes } from "./routes/auth.js";
 import { partyRoutes } from "./routes/parties.js";
+import { returnRoutes } from "./routes/returns.js";
 
 server.register(authRoutes, { prefix: "/api/v1/auth" });
 server.register(partyRoutes, { prefix: "/api/v1/parties" });
-
+server.register(returnRoutes, { prefix: "/api/v1/returns" });
 import { businessRoutes } from "./routes/businesses.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 
