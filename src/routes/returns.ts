@@ -1,6 +1,4 @@
 // src/routes/returns.ts
-// GST Returns ke API endpoints
-
 import { FastifyInstance } from "fastify";
 import { computeGSTR1, formatPaise } from "../services/gstr1Service.js";
 import { z } from "zod";
@@ -8,7 +6,6 @@ import { z } from "zod";
 export async function returnRoutes(app: FastifyInstance) {
 
   // POST /api/v1/returns/gstr1/compute
-  // GSTR-1 compute karo kisi bhi month ke liye
   app.post("/gstr1/compute", {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
@@ -26,10 +23,8 @@ export async function returnRoutes(app: FastifyInstance) {
     }
 
     const { business_id, tax_period } = parsed.data;
-
     const gstr1 = await computeGSTR1(business_id, tax_period);
 
-    // Human readable summary
     return reply.send({
       success: true,
       gstr1: {
@@ -50,8 +45,33 @@ export async function returnRoutes(app: FastifyInstance) {
     });
   });
 
+  // POST /api/v1/returns/gstr3b/compute
+  app.post("/gstr3b/compute", {
+    preHandler: [app.authenticate],
+  }, async (request, reply) => {
+    const schema = z.object({
+      business_id: z.string().uuid(),
+      tax_period: z.string().regex(/^\d{4}-\d{2}$/, "Format: YYYY-MM"),
+    });
+
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "INVALID_INPUT", message: parsed.error.errors[0].message },
+      });
+    }
+
+    const { computeGSTR3B } = await import("../services/gstr3bService.js");
+    const gstr3b = await computeGSTR3B(
+      parsed.data.business_id,
+      parsed.data.tax_period
+    );
+
+    return reply.send({ success: true, gstr3b });
+  });
+
   // GET /api/v1/returns?business_id=xxx
-  // Saare returns dekho
   app.get("/", {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
