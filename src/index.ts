@@ -42,11 +42,13 @@ import { authRoutes } from "./routes/auth.js";
 import { partyRoutes } from "./routes/parties.js";
 import { returnRoutes } from "./routes/returns.js";
 import { scanRoutes } from "./routes/scans.js";
+import { exportRoutes } from "./routes/export.js";
 
 server.register(authRoutes, { prefix: "/api/v1/auth" });
 server.register(partyRoutes, { prefix: "/api/v1/parties" });
 server.register(returnRoutes, { prefix: "/api/v1/returns" });
 server.register(scanRoutes, { prefix: "/api/v1/scans" });
+server.register(exportRoutes, { prefix: "/api/v1/export" });
 import { businessRoutes } from "./routes/businesses.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 
