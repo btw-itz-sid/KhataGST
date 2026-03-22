@@ -39,8 +39,10 @@ server.register(rateLimit, {
 });
 // Routes register karo
 import { authRoutes } from "./routes/auth.js";
+import { partyRoutes } from "./routes/parties.js";
 
 server.register(authRoutes, { prefix: "/api/v1/auth" });
+server.register(partyRoutes, { prefix: "/api/v1/parties" });
 
 import { businessRoutes } from "./routes/businesses.js";
 import { invoiceRoutes } from "./routes/invoices.js";
