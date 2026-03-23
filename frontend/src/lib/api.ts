@@ -1,20 +1,38 @@
-export function getApiErrorMessage(payload: any, fallback: string): string {
-  if (!payload) return fallback;
+type ApiRecord = Record<string, unknown>;
 
-  if (typeof payload.message === "string" && payload.message.trim()) {
-    return payload.message;
+function asRecord(value: unknown): ApiRecord | null {
+  if (!value || typeof value !== "object") return null;
+  return value as ApiRecord;
+}
+
+export function getApiErrorMessage(payload: unknown, fallback: string): string {
+  const record = asRecord(payload);
+  if (!record) return fallback;
+
+  if (typeof record.message === "string" && record.message.trim()) {
+    return record.message;
   }
 
-  if (typeof payload.error === "string" && payload.error.trim()) {
-    return payload.error;
+  if (typeof record.error === "string" && record.error.trim()) {
+    return record.error;
   }
 
-  if (typeof payload.error?.message === "string" && payload.error.message.trim()) {
-    return payload.error.message;
+  const errorRecord = asRecord(record.error);
+  if (
+    errorRecord &&
+    typeof errorRecord.message === "string" &&
+    errorRecord.message.trim()
+  ) {
+    return errorRecord.message;
   }
 
-  if (typeof payload.data?.message === "string" && payload.data.message.trim()) {
-    return payload.data.message;
+  const dataRecord = asRecord(record.data);
+  if (
+    dataRecord &&
+    typeof dataRecord.message === "string" &&
+    dataRecord.message.trim()
+  ) {
+    return dataRecord.message;
   }
 
   return fallback;

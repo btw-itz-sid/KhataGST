@@ -1,304 +1,282 @@
-# KhataGST — Progress Tracker
-> Har naye din ka update yha pe likho
+# KhataGST - Progress Tracker
+> Latest project snapshot for backend, frontend, auth, AI scan, and deployment readiness.
 
 ---
 
-## 🚀 Project Info
-- **Product**: KhataGST — AI-powered GST filing SaaS for Indian MSMEs
-- **Founder**: Siddharth (btw-itz-sid)
-- **Started**: March 2026
-- **Project Path**: `C:\Users\HP\OneDrive\Desktop\KhataGST`
-- **GitHub**: https://github.com/btw-itz-sid/KhataGST
+## Project Info
+- Product: KhataGST - AI-powered GST filing SaaS for Indian MSMEs
+- Founder: Siddharth (btw-itz-sid)
+- Started: March 2026
+- Project Path: `C:\Users\HP\OneDrive\Desktop\KhataGST`
+- GitHub: https://github.com/btw-itz-sid/KhataGST
 
 ---
 
-## 🛠️ Tech Stack
+## Current Status
 | Layer | Technology | Status |
-|-------|-----------|--------|
-| Backend | Node.js + Fastify + TypeScript | RUNNING |
-| Database | PostgreSQL — Neon (cloud, free tier) | CONNECTED |
-| AI | Anthropic Claude API (bill scan) | CODE READY |
-| Payments | Razorpay | NOT INTEGRATED |
-| WhatsApp | Twilio WABA | NOT INTEGRATED |
-| Frontend | React 18 + Vite + TailwindCSS | IN PROGRESS |
-| Hosting | Railway (backend) + Vercel (frontend) | NOT DEPLOYED |
-| Auth | Phone OTP + JWT (30 day token) | WORKING |
-| Export | ExcelJS (Excel + CSV) | WORKING |
+|-------|------------|--------|
+| Backend | Node.js + Fastify + TypeScript | Working |
+| Database | Neon PostgreSQL | Connected |
+| Auth | Phone OTP + JWT | Working |
+| OTP Provider | Local development OTP flow | Working |
+| AI Scan | Google Gemini API | Working with structured output + malformed JSON recovery |
+| Frontend | React + Vite | Working |
+| Export | Excel + CSV | Working |
+| Payments | Razorpay | Not integrated |
+| Hosting | Railway + Vercel | Not deployed |
 
 ---
 
-## ✅ Completed — Day by Day
+## Completed Milestones
 
-### Day 1 — Idea & Architecture
-- [x] Startup idea finalized — GST SaaS for Indian MSMEs
-- [x] Product name — KhataGST
-- [x] Full system architecture designed (8 layers)
-- [x] Database schema designed — 10 tables
-- [x] Claude Code agent structure planned (.claude/agents/)
-- [x] 35+ agent files created across engineering/product/marketing/design folders
-- [x] Tech stack finalized
+### Day 1 - Idea and Architecture
+- Startup idea finalized: GST SaaS for Indian MSMEs
+- Product name finalized: KhataGST
+- System architecture planned
+- Database schema designed
+- Project structure created
+- Core stack finalized
 
-### Day 2 — Project Setup
-- [x] Project folder created — `C:\Users\HP\OneDrive\Desktop\KhataGST`
-- [x] Complete folder structure created
-- [x] All npm dependencies installed
-- [x] Server running on port 3000 ✅
-- [x] Health check endpoint — `http://localhost:3000/health`
-- [x] CLAUDE.md written — Claude Code brain file
-- [x] package.json configured
+### Day 2 - Project Setup
+- Backend project initialized
+- Frontend Vite app initialized
+- TypeScript setup completed
+- Fastify server started
+- Health endpoint added
+- Environment variable flow set up
 
-### Day 3 — Auth API + Core Services
-- [x] Phone OTP auth system built
-- [x] JWT token generation — 30 day expiry
-- [x] `POST /api/v1/auth/send-otp` ✅
-- [x] `POST /api/v1/auth/verify-otp` ✅
-- [x] `GET /api/v1/auth/me` ✅
-- [x] GST Engine service — calculateTax(), validateGSTIN(), isInterState(), getDueDate()
-- [x] Bill Scan Service — Claude Vision code written (needs API key)
-- [x] dotenv configured
+### Day 3 - Auth and Core Services
+- Phone OTP auth flow built
+- JWT token generation added
+- `POST /api/v1/auth/send-otp`
+- `POST /api/v1/auth/verify-otp`
+- `GET /api/v1/auth/me`
+- GST helper logic added
 
-### Day 4 — Database Connected
-- [x] PostgreSQL local install failed (Windows admin issues)
-- [x] Switched to Neon cloud PostgreSQL — FREE tier ✅
-- [x] DATABASE_URL added to .env with SSL config
-- [x] db.ts — connection pool with SSL for Neon
-- [x] Schema run in Neon SQL Editor — all 10 tables ✅
-- [x] Real user saving to DB confirmed ✅
-- [x] .gitignore fixed — node_modules removed from GitHub
-- [x] PRD v1.0 created (KhataGST_PRD.docx)
+### Day 4 - Database Connected
+- Switched from local PostgreSQL attempt to Neon
+- Database schema created in Neon
+- Real user creation verified
+- Connection pool configured with SSL
 
-### Day 5 — Business + Invoice + Parties APIs
-- [x] `src/routes/businesses.ts` — POST, GET, GET/:id ✅
-- [x] `src/routes/invoices.ts` — full CRUD ✅
-- [x] `src/routes/parties.ts` — full CRUD with GSTIN validation + search ✅
-- [x] GST auto-calculation — CGST+SGST intra / IGST inter-state ✅
-- [x] All amounts in PAISE ✅
-- [x] Tested: INV-001 — ₹10,000 + 18% GST = ₹11,800 ✅
-- [x] 2 test parties created in Neon ✅
+### Day 5 - Business, Invoices, Parties
+- Business routes completed
+- Invoice CRUD completed
+- Party CRUD completed
+- GST tax calculation logic working
+- Paise-based storage enforced
 
-### Day 6 — GST Returns + Bill Scan + Export
-- [x] `src/services/gstr1Service.ts` — B2B/B2C separation, tax totals ✅
-- [x] `src/services/gstr3bService.ts` — net tax payable computation ✅
-- [x] `src/services/exportService.ts` — Excel + CSV generation ✅
-- [x] `src/routes/returns.ts` — GSTR-1 + GSTR-3B routes ✅
-- [x] `src/routes/scans.ts` — mock bill scan ✅
-- [x] `src/routes/export.ts` — Excel + CSV download ✅
-- [x] GSTR-1 tested — due date April 11, B2B/B2C split ✅
-- [x] GSTR-3B tested — net payable ₹1,800, due April 20 ✅
-- [x] CSV export tested ✅
-- [x] Excel export tested — 3 sheets (Summary + B2B + B2C) ✅
-- [x] Mock bill scan tested — confidence 83, action "auto" ✅
-- [x] return_status enum updated in Neon — added 'ready_to_file' ✅
-- [x] ExcelJS installed ✅
-- [x] PRD v2.0 updated (KhataGST_PRD_v2.docx)
-- [x] React + Vite + Tailwind setup ✅
-- [x] Login.tsx — Phone input + OTP screen with useState ✅
-- [x] Tailwind @tailwindcss/vite plugin configured ✅
+### Day 6 - Returns, Export, Scan Foundation
+- GSTR-1 compute flow completed
+- GSTR-3B compute flow completed
+- Excel export completed
+- CSV export completed
+- Scan route foundation added
 
-### Day 7 — React Frontend (4 Pages Complete)
-- [x] `frontend/src/App.tsx` — full routing with auth guard ✅
-  - localStorage token check on mount
-  - Auto-redirect: no token → Login, token valid → Dashboard
-  - handleLoginSuccess() stores token + businessId + expiry
-  - handleLogout() clears localStorage
-  - BottomNav shared across all pages
-- [x] `frontend/src/pages/Login.tsx` — complete OTP flow ✅
-  - Phone input with +91 prefix
-  - 6-box OTP entry — auto-advance, backspace, paste support
-  - Auto-submit when all 6 digits filled
-  - Dev mode OTP hint (shows dev_otp from backend)
-  - 30s resend countdown timer
-  - onSuccess(token, businessId) prop — wired to App.tsx
-  - Auto-fetches business ID after OTP verify
-- [x] `frontend/src/pages/Dashboard.tsx` — summary + due dates ✅
-  - GSTR-1 + GSTR-3B due date banners with live countdown
-  - Color shifts green → orange → red as deadline approaches
-  - 4 summary cards: Sales, Purchases, ITC Available, Tax Payable
-  - Recent invoices list with GST status badges
-  - Falls back to mock data if API unavailable
-- [x] `frontend/src/pages/Scan.tsx` — bill scan 4-step flow ✅
-  - Step 1: Drag/drop or camera capture upload
-  - Step 2: Animated scan line while Claude processes
-  - Step 3: Full review form — all fields editable
-  - Step 4: Done screen with option to scan another
-  - Confidence bar — green 85%+, orange 65–84%, red below 65
-  - Falls back to mock extracted data in dev mode
-- [x] `frontend/src/pages/Invoices.tsx` — invoice list ✅
-  - Live search by party name, invoice number, GSTIN
-  - 3 tabs: All / ↑ Sales / ↓ Purchases
-  - Sort by: Latest date / Amount / Party A–Z
-  - Summary strip showing total sales vs purchases
-  - Tap any card → full detail drawer (inline, no new page)
-  - GST status badges: Matched / Pending / Mismatch
-  - Empty state for no invoices + no search results
+### Day 7 - Frontend Core Screens
+- Login page completed
+- Dashboard page completed
+- Scan page completed
+- Invoices page completed
+- App-level routing completed
+- Bottom navigation added
+
+### Day 8 - Full App Flow Hardening
+- Onboarding page completed
+- Session storage helpers added
+- Login -> onboarding -> dashboard flow fixed
+- Business context persistence fixed
+- Dashboard, invoices, and scan now use real business context
+- Frontend build flow fixed with `vite.config.mjs`
+- Root backend TypeScript build fixed
+- Default local ports re-verified on `3000` and `5173`
+
+### Day 9 - Security and Reliability Pass
+- OTP no longer shown on login page
+- OTP API no longer leaks raw OTP by default
+- Dev fallback OTP logging moved to `dev-otp.log`
+- OTP security hardening completed
+- Fallback local OTP mode preserved for development
+- Gemini model selection upgraded from legacy hardcode
+- Gemini scan response hardened with:
+  - supported-model discovery
+  - structured JSON schema
+  - malformed JSON repair
+  - safer frontend error messages
+- Scan flow no longer shows fake mock invoice data after real AI failure
 
 ---
 
-## 🗄️ Database — All 10 Tables Live in Neon
+## Working Features
 
-| Table | Status | Test Data |
-|-------|--------|-----------|
-| users | LIVE | 1 user — phone 9876543210 |
-| businesses | LIVE | Test Pvt Ltd — GSTIN 27AABCU9603R1ZX |
-| parties | LIVE | Ramesh Traders + Suresh Wholesale |
-| invoices | LIVE | INV-001 — ₹11,800 |
-| invoice_items | LIVE | 1 item — 18% GST |
-| bill_scans | LIVE | 1 mock scan |
-| gst_returns | LIVE | GSTR-1 + GSTR-3B March 2026 |
-| itc_reconciliation | LIVE | Empty — Phase 2 |
-| ca_client_links | LIVE | Empty — Phase 2 |
-| payments | LIVE | Empty — Razorpay pending |
+### Auth
+- Phone number based login
+- OTP send and verify endpoints working
+- JWT token issued after OTP verification
+- 30-day auth token support
+- Session expiry handling fixed
+- Local OTP fallback works in development
+- Local OTP-based auth working in development
+
+### Business Setup
+- New user onboarding flow completed
+- Business creation works from frontend
+- Business context stored in local session
+- Dashboard redirect logic fixed after onboarding
+
+### Dashboard and Invoices
+- Dashboard summary cards working
+- Returns overview working
+- Invoice list and details working
+- Purchase invoice creation from scan flow working
+
+### AI Scan
+- Image upload flow working
+- Gemini scan route working
+- Structured extraction response normalized
+- Malformed AI JSON no longer crashes raw `JSON.parse`
+- User-facing scan errors are cleaner
+
+### Export and Returns
+- GSTR-1 compute route working
+- GSTR-3B compute route working
+- Excel export working
+- CSV export working
 
 ---
 
-## 🔄 All APIs — Complete Status
-
+## API Status
 | API | Endpoint | Status |
 |-----|----------|--------|
-| Auth | POST /api/v1/auth/send-otp | ✅ |
-| Auth | POST /api/v1/auth/verify-otp | ✅ |
-| Auth | GET /api/v1/auth/me | ✅ |
-| Business | POST /api/v1/businesses | ✅ |
-| Business | GET /api/v1/businesses | ✅ |
-| Invoice | POST/GET/PUT/DELETE /api/v1/invoices | ✅ |
-| Parties | POST/GET/PUT/DELETE /api/v1/parties | ✅ |
-| Returns | POST /api/v1/returns/gstr1/compute | ✅ |
-| Returns | POST /api/v1/returns/gstr3b/compute | ✅ |
-| Returns | GET /api/v1/returns | ✅ |
-| Scans | POST /api/v1/scans (mock) | ✅ |
-| Scans | GET /api/v1/scans/:id | ✅ |
-| Export | GET /api/v1/export/excel | ✅ |
-| Export | GET /api/v1/export/csv | ✅ |
+| Auth | POST /api/v1/auth/send-otp | Done |
+| Auth | POST /api/v1/auth/verify-otp | Done |
+| Auth | GET /api/v1/auth/me | Done |
+| Business | POST /api/v1/businesses | Done |
+| Business | GET /api/v1/businesses | Done |
+| Invoice | POST /api/v1/invoices | Done |
+| Invoice | GET /api/v1/invoices | Done |
+| Invoice | PUT /api/v1/invoices/:id | Done |
+| Invoice | DELETE /api/v1/invoices/:id | Done |
+| Parties | CRUD /api/v1/parties | Done |
+| Returns | POST /api/v1/returns/gstr1/compute | Done |
+| Returns | POST /api/v1/returns/gstr3b/compute | Done |
+| Returns | GET /api/v1/returns | Done |
+| Scan | POST /api/v1/scans | Done |
+| Scan | GET /api/v1/scans/:id | Done |
+| Export | GET /api/v1/export/excel | Done |
+| Export | GET /api/v1/export/csv | Done |
 
 ---
 
-## 🖥️ Frontend Pages — Status
-
+## Frontend Status
 | Page | File | Status | Notes |
 |------|------|--------|-------|
-| Login | pages/Login.tsx | ✅ DONE | OTP flow, onSuccess prop wired |
-| Dashboard | pages/Dashboard.tsx | ✅ DONE | Summary cards, due dates, recent invoices |
-| Scan | pages/Scan.tsx | ✅ DONE | 4-step flow, confidence bar, review form |
-| Invoices | pages/Invoices.tsx | ✅ DONE | Search, tabs, sort, detail drawer |
-| Routing | App.tsx | ✅ DONE | Auth guard, BottomNav, all routes |
-| Onboarding | pages/Onboarding.tsx | ⏳ PENDING | 3-step wizard — next session |
-| Export | pages/Export.tsx | ⏳ PENDING | Excel/CSV download with month filter |
-| Profile | pages/Profile.tsx | ⏳ PENDING | Business settings, plan info, logout |
-| Pricing | pages/Pricing.tsx | ⏳ PENDING | Plan cards + Razorpay checkout |
+| Login | `frontend/src/pages/Login.tsx` | Done | OTP login, no OTP leak in UI |
+| Onboarding | `frontend/src/pages/Onboarding.tsx` | Done | Business setup wizard |
+| Dashboard | `frontend/src/pages/Dashboard.tsx` | Done | Summary cards and due-date data |
+| Scan | `frontend/src/pages/Scan.tsx` | Done | Upload, review, save purchase invoice |
+| Invoices | `frontend/src/pages/Invoices.tsx` | Done | Search, tabs, invoice details |
+| Routing | `frontend/src/App.tsx` | Done | Session-aware route control |
+| Export | `frontend/src/pages/Export.tsx` | Pending | UI not built yet |
+| Profile | `frontend/src/pages/Profile.tsx` | Pending | Settings and account page pending |
+| Pricing | `frontend/src/pages/Pricing.tsx` | Pending | Subscription UX pending |
 
 ---
 
-## 📋 Important Notes
-1. **Amounts always in PAISE** — ₹100 = 10000 paise
-2. **JWT field** = `userId` (not `id`)
-3. **businesses table** = `owner_id` (not `user_id`)
-4. **Bill scan** = USE_MOCK = true in scans.ts
-5. **Neon DB** = needs SSL: rejectUnauthorized: false
-6. **Frontend folder** = `C:\Users\HP\OneDrive\Desktop\KhataGST\frontend\`
-7. **Frontend runs on** = `localhost:5173` (npm run dev)
-8. **Backend runs on** = `localhost:3000` (npx tsx src/index.ts)
-9. **All pages fall back to mock data** if backend not running
-
-
+## Recent Verification
+- `frontend`: `npm run lint` passed
+- `frontend`: `npm run build` passed
+- `backend`: `npm run build` passed
+- `GET /health` returned `200`
+- OTP send/verify flow smoke-tested
+- Onboarding create flow smoke-tested
+- Invoice create/list flow smoke-tested
+- Returns fetch smoke-tested
+- Scan route smoke-tested with live Gemini path
+- Temporary smoke-test DB records cleaned after verification
 
 ---
 
-## 🏃 How to Run
+## Important Notes
+1. Monetary amounts are stored in paise.
+2. JWT payload uses `userId`.
+3. `businesses.owner_id` is the user foreign key.
+4. Frontend default dev port is `5173`.
+5. Backend default port is `3000`.
+6. Vite config now lives at `frontend/vite.config.mjs`.
+7. OTP is not shown in UI anymore.
+8. OTP currently uses the local development flow.
+9. In development, OTP is written to `dev-otp.log`.
+10. Gemini scan uses structured JSON output, but parser repair is still kept as a safety layer.
 
-### Backend
+---
+
+## How To Run
+
+### Backend (watch mode)
 ```bash
 cd C:\Users\HP\OneDrive\Desktop\KhataGST
-npx tsx src/index.ts
-# Server: http://localhost:3000
-# Health: http://localhost:3000/health
+npm run dev
+```
+
+### Backend (compiled mode)
+```bash
+cd C:\Users\HP\OneDrive\Desktop\KhataGST
+npm run build
+npm start
 ```
 
 ### Frontend
 ```bash
 cd C:\Users\HP\OneDrive\Desktop\KhataGST\frontend
-npm run dev
-# App: http://localhost:5173
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-### Folder structure
-```
-KhataGST\
-├── src\                    ← Backend (Node.js + Fastify)
-│   ├── routes\
-│   ├── services\
-│   └── index.ts
-└── frontend\               ← Frontend (React + Vite)
-    └── src\
-        ├── App.tsx          ← Router + auth guard
-        └── pages\
-            ├── Login.tsx
-            ├── Dashboard.tsx
-            ├── Scan.tsx
-            └── Invoices.tsx
+### Dev OTP tail
+```powershell
+Get-Content .\dev-otp.log -Wait
 ```
 
 ---
 
-## 🗺️ REMAINING ROADMAP
+## Remaining Roadmap
 
-### 🔴 Week 7 — Real Bill Scan + Redis (BACKEND)
-| Task | Effort | Details |
-|------|--------|---------|
-| Anthropic API key lena | 0.5 day | console.anthropic.com — pay as you go |
-| Cloudflare R2 bucket | 0.5 day | khatagst-bills bucket, free 10GB |
-| scans.ts mein USE_MOCK = false | 0.5 day | R2 upload + real Claude Vision call |
-| Upstash Redis OTP | 1 day | Production-safe OTP storage |
-| Bill scan end-to-end test | 1 day | Real GST invoice photo test karo |
+### Backend
+- Integrate a real OTP delivery provider for production
+- Add Redis or Upstash for production-safe OTP/rate limit state
+- Add storage layer for uploaded bill images if persistent scan history is needed
+- Add stronger scan validation rules for invoice-specific fields
 
-### 🟡 Week 8 — Frontend Remaining Pages
-| Page | Effort | Details |
-|------|--------|---------|
-| Onboarding.tsx | 1 day | 3-step wizard — business name, GST type, state |
-| Export.tsx | 0.5 day | Excel/CSV download with month filter |
-| Profile.tsx | 0.5 day | Business settings, plan info, logout |
-| Pricing.tsx | 1 day | Plan cards + Razorpay checkout |
-| Mobile PWA setup | 0.5 day | manifest.json + service worker |
+### Frontend
+- Build Export page
+- Build Profile page
+- Build Pricing page
+- Add better empty states and retry UX across flows
 
-### 🟢 Week 9 — Deploy + Beta Users
-| Task | Effort | Details |
-|------|--------|---------|
-| Railway backend deploy | 1 day | Add all .env vars, health check |
-| Vercel frontend deploy | 0.5 day | Connect to Railway API URL |
-| End-to-end live test | 0.5 day | Full flow on live URL |
-| Find 5 beta users | 2 days | Local dukaan owners — free 30 day access |
+### DevOps
+- Railway backend deploy
+- Vercel frontend deploy
+- Production env setup
+- End-to-end live smoke test on deployed URLs
 
-### 🟠 Week 10-11 — Monetization
-| Task | Effort | Details |
-|------|--------|---------|
-| Razorpay subscriptions | 2 days | Create order, verify, update plan |
-| WhatsApp due date reminders | 1 day | Twilio WABA — Hindi mein |
-| First paying customer | — | Target: Week 11 |
-
-### 🔵 Phase 2 — After 100 Users
-| Task | Details |
-|------|---------|
-| ITC reconciliation | GSTR-2B mismatch detection |
-| CA dashboard | Multi-client management |
-| GSTR-9 annual | Year-end filing |
-| Android app | React Native |
-| E-invoice IRN | GST portal direct |
+### Business
+- Beta user onboarding
+- Subscription flow
+- Reminder automation
 
 ---
 
-## 📊 Timeline Summary
-```
-Day 1-6  ✅ Backend complete (90%)
-Day 7    ✅ Frontend 55% — Login, Dashboard, Scan, Invoices, App routing
-Week 7   → Real bill scan (Anthropic API key + R2)
-Week 8   → Remaining frontend pages (Onboarding, Export, Profile, Pricing)
-Week 9   → Deploy (Railway + Vercel) + 5 beta users
-Week 11  → First paying customer 💰
-Month 3  → 100 paid — break even
-Month 12 → 2000+ — seed ready 🚀
+## Timeline Snapshot
+```text
+Day 1-6  Backend foundation complete
+Day 7    Core frontend screens complete
+Day 8    App flow hardening complete
+Day 9    Security + AI scan reliability pass complete
+Next     real OTP provider, export/profile/pricing, deployment
 ```
 
 ---
 
-*Last updated: March 22, 2026 — Day 7 complete*
-*Backend: 90% | Frontend: 55% | Deployed: No*
-*Next session: Onboarding.tsx / Export.tsx / Profile.tsx*
+*Last updated: March 23, 2026*
+*Backend: 95% | Frontend: 75% | Deployment: Pending*
+*Next focus: real OTP provider, remaining frontend screens, deploy*

@@ -20,6 +20,22 @@ interface Invoice {
   gst_status: "matched" | "pending" | "unmatched";
 }
 
+interface RawInvoice {
+  id?: string;
+  invoice_number?: string;
+  invoice_date?: string;
+  invoice_type?: string;
+  party_name?: string;
+  party_gstin?: string;
+  taxable_value?: number;
+  taxable_amount?: number;
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
+  total_amount?: number;
+  gst_status?: string;
+}
+
 interface Props {
   navigate: (route: Route) => void;
 }
@@ -99,7 +115,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function normalizeInvoice(invoice: any): Invoice {
+function normalizeInvoice(invoice: RawInvoice): Invoice {
   return {
     id: String(invoice.id ?? ""),
     invoice_number: String(invoice.invoice_number ?? "NA"),
@@ -122,36 +138,39 @@ function normalizeInvoice(invoice: any): Invoice {
 }
 
 export default function Invoices({ navigate }: Props) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const storedToken = getToken();
+  const storedBusiness = getBusinessContext();
+  const canFetchLiveData = Boolean(storedToken && storedBusiness?.id);
+
+  const [invoices, setInvoices] = useState<Invoice[]>(() =>
+    canFetchLiveData ? [] : MOCK
+  );
+  const [loading, setLoading] = useState(canFetchLiveData);
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [selected, setSelected] = useState<Invoice | null>(null);
 
   useEffect(() => {
-    const token = getToken();
-    const business = getBusinessContext();
+    if (!canFetchLiveData || !storedBusiness?.id) return;
 
-    if (!token || !business?.id) {
-      setInvoices(MOCK);
-      setLoading(false);
-      return;
-    }
-
-    fetch(`${BASE_URL}/invoices?business_id=${business.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    fetch(`${BASE_URL}/invoices?business_id=${storedBusiness.id}`, {
+      headers: { Authorization: `Bearer ${storedToken}` },
     })
       .then(async (response) => {
         const payload = await response.json().catch(() => null);
         if (!response.ok) throw new Error("Invoice fetch failed");
 
-        const rows = payload?.invoices ?? payload?.data ?? [];
+        const rows: RawInvoice[] = Array.isArray(
+          payload?.invoices ?? payload?.data
+        )
+          ? (payload?.invoices ?? payload?.data)
+          : [];
         setInvoices(rows.length ? rows.map(normalizeInvoice) : []);
       })
       .catch(() => setInvoices(MOCK))
       .finally(() => setLoading(false));
-  }, []);
+  }, [canFetchLiveData, storedBusiness?.id, storedToken]);
 
   const filtered = useMemo(() => {
     let list = invoices;
@@ -254,14 +273,16 @@ export default function Invoices({ navigate }: Props) {
               </span>
             </div>
 
-            {[
-              ["Party", selected.party_name],
-              selected.party_gstin ? ["GSTIN", selected.party_gstin] : null,
-              ["Date", formatDate(selected.invoice_date)],
-              ["Type", selected.invoice_type === "sale" ? "Sale" : "Purchase"],
-            ]
-              .filter(Boolean)
-              .map(([label, value]: any) => (
+            {(
+              [
+                ["Party", selected.party_name],
+                ...(selected.party_gstin
+                  ? ([["GSTIN", selected.party_gstin]] as Array<[string, string]>)
+                  : []),
+                ["Date", formatDate(selected.invoice_date)],
+                ["Type", selected.invoice_type === "sale" ? "Sale" : "Purchase"],
+              ] as Array<[string, string]>
+            ).map(([label, value]) => (
                 <div
                   key={label}
                   style={{
@@ -285,14 +306,20 @@ export default function Invoices({ navigate }: Props) {
               ))}
 
             <div style={{ borderTop: "1px solid #e5e1d8", marginTop: 8, paddingTop: 8 }}>
-              {[
-                ["Taxable Amount", formatMoney(selected.taxable_amount)],
-                selected.igst_amount > 0 ? ["IGST", formatMoney(selected.igst_amount)] : null,
-                selected.cgst_amount > 0 ? ["CGST", formatMoney(selected.cgst_amount)] : null,
-                selected.sgst_amount > 0 ? ["SGST", formatMoney(selected.sgst_amount)] : null,
-              ]
-                .filter(Boolean)
-                .map(([label, value]: any) => (
+              {(
+                [
+                  ["Taxable Amount", formatMoney(selected.taxable_amount)],
+                  ...(selected.igst_amount > 0
+                    ? ([["IGST", formatMoney(selected.igst_amount)]] as Array<[string, string]>)
+                    : []),
+                  ...(selected.cgst_amount > 0
+                    ? ([["CGST", formatMoney(selected.cgst_amount)]] as Array<[string, string]>)
+                    : []),
+                  ...(selected.sgst_amount > 0
+                    ? ([["SGST", formatMoney(selected.sgst_amount)]] as Array<[string, string]>)
+                    : []),
+                ] as Array<[string, string]>
+              ).map(([label, value]) => (
                   <div
                     key={label}
                     style={{

@@ -19,13 +19,16 @@ type Route = "login" | "onboarding" | "dashboard" | "scan" | "invoices";
 
 const BASE_URL = "/api/v1";
 
-async function fetchPrimaryBusiness(token: string): Promise<StoredBusinessContext | null> {
+async function fetchPrimaryBusiness(
+  token: string
+): Promise<StoredBusinessContext | null | "unauthorized"> {
   try {
     const response = await fetch(`${BASE_URL}/businesses`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const payload = await response.json().catch(() => null);
 
+    if (response.status === 401) return "unauthorized";
     if (!response.ok) return null;
 
     const business = payload?.businesses?.[0] ?? payload?.data?.[0] ?? null;
@@ -139,6 +142,13 @@ export default function App() {
       const business = await fetchPrimaryBusiness(getToken());
       if (cancelled) return;
 
+      if (business === "unauthorized") {
+        clearSession();
+        setRoute("login");
+        setReady(true);
+        return;
+      }
+
       if (business) {
         setBusinessContext(business);
         setRoute("dashboard");
@@ -211,7 +221,11 @@ export default function App() {
       {route === "login" && <Login onSuccess={handleLoginSuccess} />}
 
       {route === "onboarding" && (
-        <Onboarding token={getToken()} onComplete={handleOnboardingComplete} />
+        <Onboarding
+          token={getToken()}
+          onComplete={handleOnboardingComplete}
+          onRequireLogin={handleLogout}
+        />
       )}
 
       {route === "dashboard" && (

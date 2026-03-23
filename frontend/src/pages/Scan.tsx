@@ -33,6 +33,27 @@ function formatRupees(paise: number): string {
   })}`;
 }
 
+function getScanFailureMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Bill scan abhi complete nahi ho paya. Dobara try karo.";
+  }
+
+  const message = error.message.toLowerCase();
+  if (message.includes("gemini") || message.includes("model")) {
+    return "AI scan service abhi unavailable thi. Dobara try karo.";
+  }
+  if (
+    message.includes("valid json") ||
+    message.includes("double-quoted property name") ||
+    message.includes("unexpected token") ||
+    message.includes("json")
+  ) {
+    return "AI ne malformed scan data bheja. Dobara try karo.";
+  }
+
+  return error.message;
+}
+
 export default function Scan({ navigate }: Props) {
   const [step, setStep] = useState<
     "upload" | "scanning" | "review" | "saving" | "done"
@@ -113,27 +134,11 @@ export default function Scan({ navigate }: Props) {
       setResult(normalized);
       setEdited(normalized);
       setStep("review");
-    } catch (err: any) {
-      const fallback: ScannedInvoiceData = {
-        invoice_number: "INV-SCAN-001",
-        vendor_name: "Ramesh Traders",
-        vendor_gstin: "27AABCU9603R1ZX",
-        invoice_date: "2026-03-20",
-        taxable_amount: 500000,
-        gst_rate: 18,
-        cgst_amount: 45000,
-        sgst_amount: 45000,
-        igst_amount: 0,
-        total_amount: 590000,
-        hsn_code: "998314",
-        confidence: 83,
-        action: "review",
-      };
-
-      setError(err.message || "Live scan fail hua, mock data dikhaya gaya hai.");
-      setResult(fallback);
-      setEdited(fallback);
-      setStep("review");
+    } catch (err: unknown) {
+      setError(getScanFailureMessage(err));
+      setResult(null);
+      setEdited(null);
+      setStep("upload");
     }
   }
 
@@ -191,8 +196,10 @@ export default function Scan({ navigate }: Props) {
       }
 
       setStep("done");
-    } catch (err: any) {
-      setError(err.message || "Invoice save nahi ho payi");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Invoice save nahi ho payi"
+      );
       setStep("review");
     }
   }

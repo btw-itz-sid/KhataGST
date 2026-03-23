@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { getApiErrorMessage } from "../lib/api";
-import type { StoredBusinessContext } from "../lib/session";
+import { getToken, type StoredBusinessContext } from "../lib/session";
 
 interface Props {
   token: string;
   onComplete: (business: StoredBusinessContext) => void;
+  onRequireLogin: () => void;
 }
 
 type RegistrationType = "regular" | "composition" | "unregistered";
@@ -48,7 +49,11 @@ const STATES = [
   { label: "West Bengal", code: "19" },
 ] as const;
 
-export default function Onboarding({ token, onComplete }: Props) {
+export default function Onboarding({
+  token,
+  onComplete,
+  onRequireLogin,
+}: Props) {
   const [step, setStep] = useState(1);
   const [businessName, setBusinessName] = useState("");
   const [ownerName, setOwnerName] = useState("");
@@ -65,12 +70,14 @@ export default function Onboarding({ token, onComplete }: Props) {
   const requiresGstin = registrationType !== "unregistered";
 
   async function handleSubmit() {
+    const activeToken = token || getToken();
     const trimmedBusinessName = businessName.trim();
     const trimmedOwnerName = ownerName.trim();
     const trimmedGstin = gstin.trim().toUpperCase();
 
-    if (!token) {
-      setError("Session missing hai. Dobara login karo.");
+    if (!activeToken) {
+      setError("Session expired hai. Dobara login karo.");
+      onRequireLogin();
       return;
     }
 
@@ -97,7 +104,7 @@ export default function Onboarding({ token, onComplete }: Props) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${activeToken}`,
         },
         body: JSON.stringify({
           legal_name: trimmedBusinessName,
@@ -110,6 +117,11 @@ export default function Onboarding({ token, onComplete }: Props) {
       });
 
       const payload = await response.json().catch(() => null);
+      if (response.status === 401) {
+        setError("Session expired hai. Dobara login karo.");
+        onRequireLogin();
+        return;
+      }
       if (!response.ok) {
         throw new Error(getApiErrorMessage(payload, "Business save nahi ho paya"));
       }
@@ -124,8 +136,10 @@ export default function Onboarding({ token, onComplete }: Props) {
         name: business.legal_name ?? trimmedBusinessName,
       });
       setStep(3);
-    } catch (err: any) {
-      setError(err.message || "Business save nahi ho paya");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Business save nahi ho paya"
+      );
     } finally {
       setLoading(false);
     }

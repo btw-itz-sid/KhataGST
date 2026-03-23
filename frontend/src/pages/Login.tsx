@@ -16,7 +16,6 @@ export default function Login({ onSuccess }: Props) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -49,14 +48,13 @@ export default function Login({ onSuccess }: Props) {
         throw new Error(getApiErrorMessage(data, "OTP send karne mein problem"));
       }
 
-      const otpHint = data?.data?.dev_otp ?? data?.dev_otp ?? null;
-      if (otpHint) setDevOtp(otpHint);
-
       setStep("otp");
       setResendTimer(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
-    } catch (err: any) {
-      setError(err.message || "Server se connect nahi ho pa raha");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Server se connect nahi ho pa raha"
+      );
       setStep("phone");
     }
   }
@@ -96,11 +94,15 @@ export default function Login({ onSuccess }: Props) {
             };
           }
         }
-      } catch {}
+      } catch {
+        business = null;
+      }
 
       onSuccess(token, business);
-    } catch (err: any) {
-      setError(err.message || "OTP verify nahi ho pa raha");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "OTP verify nahi ho pa raha"
+      );
       setStep("otp");
     }
   }
@@ -129,7 +131,7 @@ export default function Login({ onSuccess }: Props) {
   }
 
   function goBack() {
-    setStep("phone"); setOtp(["", "", "", "", "", ""]); setError(null); setDevOtp(null);
+    setStep("phone"); setOtp(["", "", "", "", "", ""]); setError(null);
   }
 
   return (
@@ -167,7 +169,6 @@ export default function Login({ onSuccess }: Props) {
         .btn-ghost:hover{color:var(--tx)}
         .btn-ghost:disabled{color:var(--tm);cursor:not-allowed}
         .error-box{background:#fef2f2;border:1px solid #fca5a5;color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
-        .dev-hint{background:#fefce8;border:1px dashed #fbbf24;color:#92400e;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;font-family:var(--mono);text-align:center}
         .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 0;gap:16px}
         .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--saffron);border-radius:50%;animation:spin .7s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -213,7 +214,6 @@ export default function Login({ onSuccess }: Props) {
             <>
               <h1 className="card-title">OTP Verify karein 🔐</h1>
               <p className="card-sub">6-digit OTP bheja gaya <span className="phone-highlight">+91 {phone}</span> pe</p>
-              {devOtp && <div className="dev-hint">🛠 Dev mode — OTP: <strong>{devOtp}</strong></div>}
               {error && <div className="error-box">⚠️ {error}</div>}
               <div className="otp-row" onPaste={handleOtpPaste}>
                 {otp.map((digit, i) => (

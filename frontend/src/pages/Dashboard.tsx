@@ -23,6 +23,26 @@ interface RecentInvoice {
   gst_status: "matched" | "pending" | "unmatched";
 }
 
+interface RawInvoice {
+  id?: string;
+  invoice_number?: string;
+  party_name?: string;
+  party_gstin?: string;
+  total_amount?: number;
+  invoice_date?: string;
+  invoice_type?: string;
+  gst_status?: string;
+  taxable_value?: number;
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
+}
+
+interface ReturnSummary {
+  return_type?: string;
+  due_date?: string;
+}
+
 interface Props {
   navigate: (route: Route) => void;
   onLogout: () => void;
@@ -82,7 +102,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function normalizeInvoice(invoice: any): RecentInvoice {
+function normalizeInvoice(invoice: RawInvoice): RecentInvoice {
   return {
     id: String(invoice.id ?? ""),
     invoice_number: String(invoice.invoice_number ?? "NA"),
@@ -151,10 +171,17 @@ export default function Dashboard({ navigate, onLogout }: Props) {
 
         if (!invoiceRes.ok) throw new Error("Invoice data unavailable");
 
-        const rawInvoices = invoicePayload?.invoices ?? invoicePayload?.data ?? [];
+        const rawInvoices: RawInvoice[] = Array.isArray(
+          invoicePayload?.invoices ?? invoicePayload?.data
+        )
+          ? (invoicePayload?.invoices ?? invoicePayload?.data)
+          : [];
         const invoices = rawInvoices.map(normalizeInvoice);
-        const returns =
-          returnsPayload?.returns ?? returnsPayload?.data ?? [];
+        const returns: ReturnSummary[] = Array.isArray(
+          returnsPayload?.returns ?? returnsPayload?.data
+        )
+          ? (returnsPayload?.returns ?? returnsPayload?.data)
+          : [];
 
         let totalSales = 0;
         let totalPurchases = 0;
@@ -177,8 +204,8 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           }
         }
 
-        const gstr1 = returns.find((item: any) => item.return_type === "GSTR1");
-        const gstr3b = returns.find((item: any) => item.return_type === "GSTR3B");
+        const gstr1 = returns.find((item) => item.return_type === "GSTR1");
+        const gstr3b = returns.find((item) => item.return_type === "GSTR3B");
 
         setData({
           totalSales,

@@ -2,7 +2,53 @@ import * as fs from "fs";
 import * as path from "path";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const DEFAULT_GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+] as const;
+const BILL_EXTRACTION_SCHEMA = {
+  type: "object",
+  properties: {
+    invoice_number: { type: "string" },
+    vendor_name: { type: "string" },
+    vendor_gstin: { type: "string" },
+    invoice_date: { type: "string" },
+    taxable_amount: { type: "number" },
+    gst_rate: { type: "number" },
+    cgst_amount: { type: "number" },
+    sgst_amount: { type: "number" },
+    igst_amount: { type: "number" },
+    total_amount: { type: "number" },
+    hsn_code: { type: "string" },
+    confidence: { type: "number" },
+    action: {
+      type: "string",
+      enum: ["auto", "review", "manual"],
+    },
+  },
+  required: [
+    "invoice_number",
+    "vendor_name",
+    "vendor_gstin",
+    "invoice_date",
+    "taxable_amount",
+    "gst_rate",
+    "cgst_amount",
+    "sgst_amount",
+    "igst_amount",
+    "total_amount",
+    "hsn_code",
+    "confidence",
+    "action",
+  ],
+} as const;
+
+interface GeminiModelEntry {
+  name?: string;
+  supportedGenerationMethods?: string[];
+}
 
 export interface ExtractedBillData {
   invoice_number: string;
@@ -28,12 +74,195 @@ export function getScanAction(confidence: number): {
   return { action: "manual" };
 }
 
+function normalizeModelName(model: string): string {
+  return model.replace(/^models\//, "").trim();
+}
+
+function buildGenerateContentUrl(model: string): string {
+  const normalizedModel = normalizeModelName(model);
+  return `${GEMINI_API_BASE}/models/${normalizedModel}:generateContent?key=${GEMINI_API_KEY}`;
+}
+
+function getConfiguredModelCandidates(): string[] {
+  const configured = process.env.GEMINI_MODEL
+    ? [normalizeModelName(process.env.GEMINI_MODEL)]
+    : [];
+
+  return [...configured, ...DEFAULT_GEMINI_MODELS].filter(
+    (model, index, all) => Boolean(model) && all.indexOf(model) === index
+  );
+}
+
+async function listSupportedGeminiModels(): Promise<string[]> {
+  const response = await fetch(`${GEMINI_API_BASE}/models?key=${GEMINI_API_KEY}`);
+  if (!response.ok) {
+    throw new Error(`Gemini models list failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const models = Array.isArray(payload?.models) ? payload.models : [];
+
+  return models
+    .filter((model: GeminiModelEntry) =>
+      model.supportedGenerationMethods?.includes("generateContent")
+    )
+    .map((model: GeminiModelEntry) => normalizeModelName(model.name ?? ""))
+    .filter(Boolean);
+}
+
+async function resolveGeminiModelCandidates(): Promise<string[]> {
+  const configuredCandidates = getConfiguredModelCandidates();
+
+  try {
+    const availableModels = await listSupportedGeminiModels();
+    const availableSet = new Set(availableModels);
+
+    const preferredMatches = configuredCandidates.filter((model) =>
+      availableSet.has(model)
+    );
+    if (preferredMatches.length > 0) {
+      return preferredMatches;
+    }
+
+    const flashModels = availableModels.filter((model) => /flash/i.test(model));
+    if (flashModels.length > 0) {
+      return flashModels;
+    }
+
+    if (availableModels.length > 0) {
+      return availableModels;
+    }
+  } catch {
+    // Fall back to static model order if model discovery is unavailable.
+  }
+
+  return configuredCandidates;
+}
+
+function isModelUnavailable(status: number, errorText: string): boolean {
+  return (
+    status === 404 ||
+    /not found|not supported for generateContent|unknown model/i.test(errorText)
+  );
+}
+
+function extractJsonObject(text: string): string {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    return text.slice(start, end + 1);
+  }
+
+  return text.trim();
+}
+
+function repairLooseJson(text: string): string {
+  return extractJsonObject(text)
+    .replace(/^\uFEFF/, "")
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/([{,]\s*)'([^'\\]*(?:\\.[^'\\]*)*)'\s*:/g, '$1"$2":')
+    .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*:/g, '$1"$2":')
+    .replace(
+      /:\s*'([^'\\]*(?:\\.[^'\\]*)*)'/g,
+      (_match, value: string) =>
+        `: ${JSON.stringify(value.replace(/\\'/g, "'"))}`
+    )
+    .replace(/,(\s*[}\]])/g, "$1")
+    .trim();
+}
+
+function normalizeString(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value == null) return "";
+  return String(value).trim();
+}
+
+function normalizeNumber(value: unknown): number {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function normalizeInvoiceDate(value: unknown): string {
+  const raw = normalizeString(value);
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const match = raw.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
+  if (match) {
+    const [, day, month, year] = match;
+    return `${year}-${month}-${day}`;
+  }
+
+  return raw;
+}
+
+function normalizeAction(value: unknown, confidence: number): "auto" | "review" | "manual" {
+  if (value === "auto" || value === "review" || value === "manual") {
+    return value;
+  }
+
+  return getScanAction(confidence).action;
+}
+
+function normalizeExtractedBillData(payload: unknown): ExtractedBillData {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("AI response object format mein nahi tha.");
+  }
+
+  const source = payload as Record<string, unknown>;
+  const confidence = Math.max(0, Math.min(100, normalizeNumber(source.confidence)));
+
+  return {
+    invoice_number: normalizeString(source.invoice_number),
+    vendor_name: normalizeString(source.vendor_name),
+    vendor_gstin: normalizeString(source.vendor_gstin).toUpperCase(),
+    invoice_date: normalizeInvoiceDate(source.invoice_date),
+    taxable_amount: Math.round(normalizeNumber(source.taxable_amount)),
+    gst_rate: normalizeNumber(source.gst_rate),
+    cgst_amount: Math.round(normalizeNumber(source.cgst_amount)),
+    sgst_amount: Math.round(normalizeNumber(source.sgst_amount)),
+    igst_amount: Math.round(normalizeNumber(source.igst_amount)),
+    total_amount: Math.round(normalizeNumber(source.total_amount)),
+    hsn_code: normalizeString(source.hsn_code),
+    confidence,
+    action: normalizeAction(source.action, confidence),
+  };
+}
+
+function parseExtractedBillData(rawText: string): ExtractedBillData {
+  const attempts = [
+    extractJsonObject(rawText),
+    repairLooseJson(rawText),
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const candidate of attempts) {
+    try {
+      return normalizeExtractedBillData(JSON.parse(candidate));
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw new Error(
+    `AI response valid JSON nahi tha. ${lastError?.message ?? "Unknown parse error"}`
+  );
+}
+
 export async function scanBillWithAI(imagePath: string): Promise<{
   extracted_data: ExtractedBillData;
   confidence_score: number;
   action: string;
   raw_response: string;
 }> {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Gemini API key missing hai. GEMINI_API_KEY set karo.");
+  }
+
   // Read image and convert to base64
   const imageBuffer = fs.readFileSync(imagePath);
   const base64Image = imageBuffer.toString("base64");
@@ -65,39 +294,61 @@ Important rules:
 - If inter-state: fill igst_amount, cgst_amount = 0, sgst_amount = 0
 - Return ONLY the JSON, nothing else`;
 
-  const response = await fetch(GEMINI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: base64Image } }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 1000,
-      }
-    })
-  });
+  const modelCandidates = await resolveGeminiModelCandidates();
+  let lastError = "";
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Gemini API error: ${err}`);
+  for (const model of modelCandidates) {
+    const response = await fetch(buildGenerateContentUrl(model), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: base64Image } },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1000,
+          responseMimeType: "application/json",
+          responseJsonSchema: BILL_EXTRACTION_SCHEMA,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      lastError = `Gemini API error (${model}): ${err}`;
+
+      if (isModelUnavailable(response.status, err)) {
+        continue;
+      }
+
+      throw new Error(lastError);
+    }
+
+    const data = await response.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    if (!rawText) {
+      throw new Error(`Gemini response empty aaya for model ${model}.`);
+    }
+
+    const extracted = parseExtractedBillData(rawText);
+
+    return {
+      extracted_data: extracted,
+      confidence_score: extracted.confidence,
+      action: extracted.action,
+      raw_response: rawText,
+    };
   }
 
-  const data = await response.json();
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-  // Clean and parse JSON
-  const cleaned = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  const extracted: ExtractedBillData = JSON.parse(cleaned);
-
-  return {
-    extracted_data: extracted,
-    confidence_score: extracted.confidence,
-    action: extracted.action,
-    raw_response: rawText,
-  };
+  throw new Error(
+    lastError ||
+      "Gemini ke liye koi supported model nahi mila. GEMINI_MODEL ya API access check karo."
+  );
 }
