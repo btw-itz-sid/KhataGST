@@ -12,12 +12,22 @@ function calculateTax(taxable_paise: number, gst_rate: number, isInterState: boo
   }
 }
 
+function normalizePaise(value: unknown): number {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? Math.round(numeric) : 0;
+}
+
+function normalizeQuantity(value: unknown): number {
+  const numeric = Number(value ?? 1);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
+}
+
 export async function invoiceRoutes(fastify: FastifyInstance) {
   fastify.addHook("onRequest", async (request, reply) => {
     try {
       await request.jwtVerify();
     } catch {
-      reply.status(401).send({ error: "Login karo pehle" });
+      return reply.status(401).send({ error: "Login karo pehle" });
     }
   });
 
@@ -25,8 +35,17 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
   fastify.post("/", async (request, reply) => {
     const userId = (request.user as any).userId;
     const {
-      business_id, party_id, invoice_number, invoice_date, due_date,
-      invoice_type = "sale", place_of_supply, items, notes,
+      business_id,
+      party_id,
+      party_name,
+      party_gstin,
+      invoice_number,
+      invoice_date,
+      due_date,
+      invoice_type = "sale",
+      place_of_supply,
+      items,
+      notes,
     } = request.body as any;
 
     if (!items || items.length === 0) {
@@ -42,19 +61,41 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     }
 
     const business = bizResult.rows[0];
-    const sellerStateCode = business.gstin.substring(0, 2);
-    const isInterState = sellerStateCode !== place_of_supply;
+    const sellerStateCode = String(
+      business.state_code ?? business.gstin?.substring(0, 2) ?? ""
+    );
+    const inferredPlaceOfSupply =
+      place_of_supply ??
+      (typeof party_gstin === "string" && party_gstin.trim().length >= 2
+        ? party_gstin.trim().slice(0, 2)
+        : sellerStateCode);
+    const isInterState = Boolean(
+      inferredPlaceOfSupply &&
+      sellerStateCode &&
+      sellerStateCode !== String(inferredPlaceOfSupply).trim().slice(0, 2)
+    );
 
     let subtotal_paise = 0, total_cgst = 0, total_sgst = 0, total_igst = 0;
 
     const processedItems = items.map((item: any) => {
-      const taxable = Math.round(item.quantity * item.unit_price_paise);
-      const tax = calculateTax(taxable, item.gst_rate, isInterState);
+      const quantity = normalizeQuantity(item.quantity);
+      const unit_price_paise = normalizePaise(item.unit_price_paise ?? item.unit_price);
+      const gst_rate = Number(item.gst_rate ?? 0);
+      const taxable = Math.round(quantity * unit_price_paise);
+      const tax = calculateTax(taxable, Number.isFinite(gst_rate) ? gst_rate : 0, isInterState);
       subtotal_paise += taxable;
       total_cgst += tax.cgst_paise;
       total_sgst += tax.sgst_paise;
       total_igst += tax.igst_paise;
-      return { ...item, taxable_paise: taxable, ...tax };
+      return {
+        description: String(item.description ?? "Line item").trim(),
+        hsn_sac: item.hsn_sac ?? item.hsn_sac_code ?? null,
+        quantity,
+        unit_price_paise,
+        gst_rate: Number.isFinite(gst_rate) ? gst_rate : 0,
+        taxable_paise: taxable,
+        ...tax,
+      };
     });
 
     const total_paise = subtotal_paise + total_cgst + total_sgst + total_igst;
@@ -63,6 +104,48 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     try {
       await client.query("BEGIN");
 
+      let resolvedPartyId = party_id ?? null;
+      const normalizedPartyName = String(party_name ?? "").trim();
+      const normalizedPartyGstin = String(party_gstin ?? "").trim().toUpperCase() || null;
+
+      if (!resolvedPartyId && (normalizedPartyName || normalizedPartyGstin)) {
+        const existingParty = normalizedPartyGstin
+          ? await client.query(
+              `SELECT id FROM parties
+               WHERE business_id = $1 AND gstin = $2
+               ORDER BY created_at DESC
+               LIMIT 1`,
+              [business_id, normalizedPartyGstin]
+            )
+          : await client.query(
+              `SELECT id FROM parties
+               WHERE business_id = $1 AND LOWER(name) = LOWER($2)
+               ORDER BY created_at DESC
+               LIMIT 1`,
+              [business_id, normalizedPartyName]
+            );
+
+        if (existingParty.rows.length > 0) {
+          resolvedPartyId = existingParty.rows[0].id;
+        } else if (normalizedPartyName) {
+          const newParty = await client.query(
+            `INSERT INTO parties
+               (business_id, name, gstin, state_code, is_supplier, is_customer)
+             VALUES ($1,$2,$3,$4,$5,$6)
+             RETURNING id`,
+            [
+              business_id,
+              normalizedPartyName,
+              normalizedPartyGstin,
+              normalizedPartyGstin?.slice(0, 2) ?? null,
+              invoice_type === "purchase",
+              invoice_type !== "purchase",
+            ]
+          );
+          resolvedPartyId = newParty.rows[0].id;
+        }
+      }
+
       const invResult = await client.query(
         `INSERT INTO invoices
            (business_id, party_id, invoice_type, invoice_number, invoice_date, due_date,
@@ -70,7 +153,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
          RETURNING *`,
         [
-          business_id, party_id ?? null, invoice_type, invoice_number,
+          business_id, resolvedPartyId, invoice_type, invoice_number,
           invoice_date, due_date ?? null,
           subtotal_paise, total_cgst, total_sgst, total_igst, total_paise,
           isInterState, notes ?? null,
@@ -121,8 +204,9 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     const offset = (Number(page) - 1) * Number(limit);
 
     let queryText = `
-      SELECT i.* FROM invoices i
+      SELECT i.*, p.name AS party_name, p.gstin AS party_gstin FROM invoices i
       JOIN businesses b ON i.business_id = b.id
+      LEFT JOIN parties p ON i.party_id = p.id
       WHERE b.owner_id = $1
       ORDER BY i.invoice_date DESC
       LIMIT $2 OFFSET $3
@@ -131,8 +215,9 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
     if (business_id) {
       queryText = `
-        SELECT i.* FROM invoices i
+        SELECT i.*, p.name AS party_name, p.gstin AS party_gstin FROM invoices i
         JOIN businesses b ON i.business_id = b.id
+        LEFT JOIN parties p ON i.party_id = p.id
         WHERE b.owner_id = $1 AND i.business_id = $4
         ORDER BY i.invoice_date DESC
         LIMIT $2 OFFSET $3
@@ -150,8 +235,9 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     const invResult = await db.query(
-      `SELECT i.* FROM invoices i
+      `SELECT i.*, p.name AS party_name, p.gstin AS party_gstin FROM invoices i
        JOIN businesses b ON i.business_id = b.id
+       LEFT JOIN parties p ON i.party_id = p.id
        WHERE i.id = $1 AND b.owner_id = $2`,
       [id, userId]
     );

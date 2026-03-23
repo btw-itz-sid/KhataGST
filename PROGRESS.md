@@ -199,14 +199,7 @@
 8. **Backend runs on** = `localhost:3000` (npx tsx src/index.ts)
 9. **All pages fall back to mock data** if backend not running
 
-## 🔑 Test IDs (Neon mein saved)
-```
-User ID:     38e6e6eb-fa4f-45a1-a13d-b752c01a0cc6
-Business ID: f15b9c5f-5768-4aed-b484-92470d719679
-Phone:       9876543210
-JWT Token:   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzOGU2ZTZlYi1mYTRmLTQ1YTEtYTEzZC1iNzUyYzAxYTBjYzYiLCJwaG9uZSI6Ijk4NzY1NDMyMTAiLCJwbGFuIjoiZnJlZSIsImlhdCI6MTc3NDE1NDA3OSwiZXhwIjoxNzc2NzQ2MDc5fQ.qDVfIOdiFlxjEdfMJIwIiUrWAEcluhh63M4y9JyZgW8
-Token valid till: April 21, 2026
-```
+
 
 ---
 

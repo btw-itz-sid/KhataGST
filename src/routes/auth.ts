@@ -59,6 +59,8 @@ export async function authRoutes(app: FastifyInstance) {
 
     return reply.send({
       success: true,
+      message: `OTP bheja gaya ${phone} pe`,
+      dev_otp: process.env.NODE_ENV === "development" ? otp : undefined,
       data: {
         message: `OTP bheja gaya ${phone} pe`,
         // Development mein OTP return karo — production mein hatao!
@@ -115,6 +117,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     // User dhundo ya banao (upsert)
     let user;
+    let isNewUser = false;
     try {
       const existing = await query(
         "SELECT * FROM users WHERE phone = $1",
@@ -126,6 +129,7 @@ export async function authRoutes(app: FastifyInstance) {
         user = existing.rows[0];
       } else {
         // Naya user — signup
+        isNewUser = true;
         const newUser = await query(
           `INSERT INTO users (phone, name, plan)
            VALUES ($1, $2, 'free')
@@ -138,6 +142,7 @@ export async function authRoutes(app: FastifyInstance) {
     } catch (err: any) {
       // Database connected nahi — dev mode mein fake user banao
       console.warn("⚠️ DB not connected, using mock user");
+      isNewUser = true;
       user = {
         id: "mock-user-id-123",
         phone,
@@ -158,6 +163,14 @@ export async function authRoutes(app: FastifyInstance) {
 
     return reply.send({
       success: true,
+      token,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        name: user.name,
+        plan: user.plan,
+      },
+      is_new_user: isNewUser,
       data: {
         token,
         user: {
@@ -166,7 +179,7 @@ export async function authRoutes(app: FastifyInstance) {
           name: user.name,
           plan: user.plan,
         },
-        is_new_user: !user.created_at, // naya user hai toh onboarding dikhao
+        is_new_user: isNewUser,
       },
     });
   });

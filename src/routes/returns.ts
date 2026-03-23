@@ -75,6 +75,7 @@ export async function returnRoutes(app: FastifyInstance) {
   app.get("/", {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
+    const { userId } = request.user as any;
     const schema = z.object({
       business_id: z.string().uuid(),
     });
@@ -89,15 +90,18 @@ export async function returnRoutes(app: FastifyInstance) {
 
     const { query: dbQuery } = await import("../lib/db.js");
     const result = await dbQuery(
-      `SELECT id, return_type, tax_period, status, due_date, filed_at, arn
-       FROM gst_returns 
-       WHERE business_id = $1 
+      `SELECT r.id, r.return_type, r.tax_period, r.status, r.due_date, r.filed_at, r.arn
+       FROM gst_returns r
+       JOIN businesses b ON r.business_id = b.id
+       WHERE r.business_id = $1
+         AND b.owner_id = $2
        ORDER BY tax_period DESC`,
-      [parsed.data.business_id]
+      [parsed.data.business_id, userId]
     );
 
     return reply.send({
       success: true,
+      returns: result.rows,
       data: result.rows,
     });
   });

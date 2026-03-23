@@ -2,32 +2,89 @@
 import { FastifyInstance } from "fastify";
 import * as db from "../lib/db";
 
+function generateUnregisteredGstin(stateCode: string): string {
+  const entropy = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .padStart(10, "0")
+    .slice(-10);
+
+  return `${stateCode}URP${entropy}`;
+}
+
 export async function businessRoutes(fastify: FastifyInstance) {
   fastify.addHook("onRequest", async (request, reply) => {
     try {
       await request.jwtVerify();
     } catch {
-      reply.status(401).send({ error: "Login karo pehle" });
+      return reply.status(401).send({ error: "Login karo pehle" });
     }
   });
 
   // POST /api/v1/businesses
   fastify.post("/", async (request, reply) => {
     const userId = (request.user as any).userId;
-    const { gstin, legal_name, trade_name, address, state_code } = request.body as any;
+    const {
+      gstin,
+      legal_name,
+      trade_name,
+      owner_name,
+      address,
+      state_code,
+      registration_type,
+    } = request.body as any;
 
-    if (!gstin || gstin.length !== 15) {
-      return reply.status(400).send({ error: "Invalid GSTIN — 15 characters chahiye" });
+    const normalizedStateCode = String(state_code ?? "").trim().slice(0, 2);
+    const normalizedLegalName = String(legal_name ?? "").trim();
+    const normalizedTradeName = String(trade_name ?? legal_name ?? "").trim();
+    const normalizedRegistrationType = String(
+      registration_type ?? (gstin ? "regular" : "unregistered")
+    ).toLowerCase();
+    const normalizedGstin = String(gstin ?? "").trim().toUpperCase();
+
+    if (!normalizedLegalName) {
+      return reply.status(400).send({ error: "Business ka naam chahiye" });
+    }
+
+    if (!normalizedStateCode || normalizedStateCode.length !== 2) {
+      return reply.status(400).send({ error: "Valid state code do" });
+    }
+
+    if (normalizedRegistrationType !== "unregistered" && normalizedGstin.length !== 15) {
+      return reply.status(400).send({ error: "Registered business ke liye valid 15 character GSTIN chahiye" });
     }
 
     try {
+      const gstinToSave =
+        normalizedGstin.length === 15
+          ? normalizedGstin
+          : generateUnregisteredGstin(normalizedStateCode);
+
       const result = await db.query(
         `INSERT INTO businesses 
-           (owner_id, gstin, legal_name, trade_name, address, state_code)
-         VALUES ($1,$2,$3,$4,$5,$6)
+           (owner_id, gstin, legal_name, trade_name, address, state_code, business_type)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
          RETURNING *`,
-        [userId, gstin.toUpperCase(), legal_name, trade_name, address, state_code]
+        [
+          userId,
+          gstinToSave,
+          normalizedLegalName,
+          normalizedTradeName,
+          address ?? null,
+          normalizedStateCode,
+          normalizedRegistrationType,
+        ]
       );
+
+      if (owner_name) {
+        await db.query(
+          `UPDATE users
+           SET name = $1, updated_at = NOW()
+           WHERE id = $2`,
+          [String(owner_name).trim(), userId]
+        );
+      }
+
       reply.status(201).send({ success: true, business: result.rows[0] });
     } catch (err: any) {
       if (err.code === "23505") {

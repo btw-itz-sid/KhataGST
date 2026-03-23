@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import { getApiErrorMessage } from "../lib/api";
+import type { StoredBusinessContext } from "../lib/session";
 
 interface Props {
-  onSuccess: (token: string, businessId: string) => void;
+  onSuccess: (token: string, business: StoredBusinessContext | null) => void;
 }
 
 type Step = "phone" | "otp" | "loading";
@@ -42,9 +44,14 @@ export default function Login({ onSuccess }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: cleaned }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "OTP send karne mein problem");
-      if (data.dev_otp) setDevOtp(data.dev_otp);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(data, "OTP send karne mein problem"));
+      }
+
+      const otpHint = data?.data?.dev_otp ?? data?.dev_otp ?? null;
+      if (otpHint) setDevOtp(otpHint);
+
       setStep("otp");
       setResendTimer(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
@@ -66,18 +73,32 @@ export default function Login({ onSuccess }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: cleaned, otp: code }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "OTP galat hai");
-      const token: string = data.token;
-      let businessId = "";
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(data, "OTP galat hai"));
+      }
+
+      const token: string = data?.data?.token ?? data?.token ?? "";
+      if (!token) throw new Error("Login response mein token missing hai");
+
+      let business: StoredBusinessContext | null = null;
       try {
         const bizRes = await fetch(`${BASE_URL}/businesses`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const bizData = await bizRes.json();
-        businessId = bizData.businesses?.[0]?.id || "";
+        const bizData = await bizRes.json().catch(() => null);
+        if (bizRes.ok) {
+          const firstBusiness = bizData?.businesses?.[0] ?? bizData?.data?.[0] ?? null;
+          if (firstBusiness?.id) {
+            business = {
+              id: firstBusiness.id,
+              name: firstBusiness.legal_name ?? firstBusiness.trade_name ?? "",
+            };
+          }
+        }
       } catch {}
-      onSuccess(token, businessId);
+
+      onSuccess(token, business);
     } catch (err: any) {
       setError(err.message || "OTP verify nahi ho pa raha");
       setStep("otp");

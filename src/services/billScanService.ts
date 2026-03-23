@@ -20,6 +20,14 @@ export interface ExtractedBillData {
   action: "auto" | "review" | "manual";
 }
 
+export function getScanAction(confidence: number): {
+  action: "auto" | "review" | "manual";
+} {
+  if (confidence > 85) return { action: "auto" };
+  if (confidence >= 65) return { action: "review" };
+  return { action: "manual" };
+}
+
 export async function scanBillWithAI(imagePath: string): Promise<{
   extracted_data: ExtractedBillData;
   confidence_score: number;
