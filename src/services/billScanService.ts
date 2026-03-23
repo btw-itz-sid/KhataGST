@@ -1,159 +1,95 @@
-// src/services/billScanService.ts
-// MAIN AI FEATURE — Photo se bill ka data nikalna
-// User photo leta hai → Claude AI padhta hai → structured data milta hai
+import * as fs from "fs";
+import * as path from "path";
 
-import Anthropic from "@anthropic-ai/sdk";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+export interface ExtractedBillData {
+  invoice_number: string;
+  vendor_name: string;
+  vendor_gstin: string;
+  invoice_date: string;
+  taxable_amount: number;
+  gst_rate: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  total_amount: number;
+  hsn_code: string;
+  confidence: number;
+  action: "auto" | "review" | "manual";
+}
 
-// ── Ye prompt Claude ko deta hai ki bill se kya nikalna hai ──
-const SCAN_PROMPT = `You are a GST invoice parser for Indian businesses.
-Extract structured data from this invoice/bill image.
+export async function scanBillWithAI(imagePath: string): Promise<{
+  extracted_data: ExtractedBillData;
+  confidence_score: number;
+  action: string;
+  raw_response: string;
+}> {
+  // Read image and convert to base64
+  const imageBuffer = fs.readFileSync(imagePath);
+  const base64Image = imageBuffer.toString("base64");
+  const ext = path.extname(imagePath).toLowerCase();
+  const mimeType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
 
-Return ONLY a valid JSON object — no explanation, no markdown:
+  const prompt = `You are a GST invoice data extractor for Indian businesses. Extract ALL data from this GST invoice image.
+
+Return ONLY a valid JSON object with NO extra text, NO markdown, NO backticks:
 {
-  "invoice_number": "string or null",
-  "invoice_date": "YYYY-MM-DD or null",
-  "seller_gstin": "15-char GSTIN or null",
-  "seller_name": "string or null",
-  "buyer_gstin": "string or null",
-  "is_igst": false,
-  "items": [
-    {
-      "description": "item name",
-      "hsn_sac": "code or null",
-      "quantity": 1,
-      "unit": "NOS/KGS/MTR or null",
-      "unit_price_paise": 0,
-      "gst_rate": "18",
-      "taxable_value_paise": 0
-    }
-  ],
-  "taxable_value_paise": 0,
-  "cgst_paise": 0,
-  "sgst_paise": 0,
-  "igst_paise": 0,
-  "total_paise": 0,
-  "confidence": 85
+  "invoice_number": "invoice number or bill number",
+  "vendor_name": "seller/supplier company name",
+  "vendor_gstin": "15 character GSTIN of seller, empty string if not found",
+  "invoice_date": "date in YYYY-MM-DD format",
+  "taxable_amount": taxable value in PAISE (multiply rupees by 100),
+  "gst_rate": GST percentage as number (5, 12, 18, or 28),
+  "cgst_amount": CGST amount in PAISE (0 if IGST applies),
+  "sgst_amount": SGST amount in PAISE (0 if IGST applies),
+  "igst_amount": IGST amount in PAISE (0 if CGST/SGST applies),
+  "total_amount": grand total in PAISE,
+  "hsn_code": "HSN or SAC code, empty string if not found",
+  "confidence": confidence score 0-100,
+  "action": "auto" if confidence > 85, "review" if 65-85, "manual" if below 65
 }
 
 Important rules:
-- All money in PAISE (rupees x 100). Example: Rs.1500 = 150000
-- confidence: 0 to 100 (kitna sure hai tu)
-- Unknown fields = null
-- gst_rate must be: 0, 5, 12, 18, or 28
-- is_igst = true only if IGST column visible`;
+- All money values must be in PAISE (1 rupee = 100 paise)
+- If intra-state: fill cgst_amount and sgst_amount, igst_amount = 0
+- If inter-state: fill igst_amount, cgst_amount = 0, sgst_amount = 0
+- Return ONLY the JSON, nothing else`;
 
-// ── Result ka type ───────────────────────────────────────────
-export interface ScannedBill {
-  invoice_number: string | null;
-  invoice_date: string | null;
-  seller_gstin: string | null;
-  seller_name: string | null;
-  buyer_gstin: string | null;
-  is_igst: boolean;
-  items: {
-    description: string;
-    hsn_sac: string | null;
-    quantity: number;
-    unit: string | null;
-    unit_price_paise: number;
-    gst_rate: string;
-    taxable_value_paise: number;
-  }[];
-  taxable_value_paise: number;
-  cgst_paise: number;
-  sgst_paise: number;
-  igst_paise: number;
-  total_paise: number;
-  confidence: number;
-}
+  const response = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: base64Image } }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 1000,
+      }
+    })
+  });
 
-export interface ScanResult {
-  success: boolean;
-  data?: ScannedBill;
-  error?: string;
-}
-
-// ── Main function — URL se bill scan karo ───────────────────
-export async function scanBill(imageUrl: string): Promise<ScanResult> {
-  try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 1024,
-      temperature: 0, // deterministic — same input = same output
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "url",
-                url: imageUrl,
-              },
-            },
-            {
-              type: "text",
-              text: SCAN_PROMPT,
-            },
-          ],
-        },
-      ],
-    });
-
-    // Response text nikalo
-    const rawText =
-      response.content[0].type === "text"
-        ? response.content[0].text
-        : "";
-
-    // Markdown code fence hata do agar ho
-    const cleaned = rawText
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
-
-    const parsed: ScannedBill = JSON.parse(cleaned);
-
-    // Basic validation
-    if (typeof parsed.total_paise !== "number") {
-      throw new Error("Bill se total amount nahi mila");
-    }
-
-    return { success: true, data: parsed };
-
-  } catch (err: any) {
-    console.error("❌ Bill scan failed:", err.message);
-    return {
-      success: false,
-      error: err.message ?? "Bill scan mein error aaya",
-    };
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Gemini API error: ${err}`);
   }
-}
 
-// ── Confidence ke hisaab se action batao ────────────────────
-// Frontend is function ko use karega UI decide karne ke liye
-export function getScanAction(confidence: number): {
-  action: "auto" | "review" | "manual";
-  message: string;
-} {
-  if (confidence >= 80) {
-    return {
-      action: "auto",
-      message: "Bill successfully scan hua! Details check karo.",
-    };
-  }
-  if (confidence >= 60) {
-    return {
-      action: "review",
-      message: "Bill scan hua lekin kuch details verify karo.",
-    };
-  }
+  const data = await response.json();
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  // Clean and parse JSON
+  const cleaned = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  const extracted: ExtractedBillData = JSON.parse(cleaned);
+
   return {
-    action: "manual",
-    message: "Bill clearly nahi dikh raha. Please manually fill karo.",
+    extracted_data: extracted,
+    confidence_score: extracted.confidence,
+    action: extracted.action,
+    raw_response: rawText,
   };
 }

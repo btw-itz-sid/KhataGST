@@ -43,6 +43,8 @@ import { partyRoutes } from "./routes/parties.js";
 import { returnRoutes } from "./routes/returns.js";
 import { scanRoutes } from "./routes/scans.js";
 import { exportRoutes } from "./routes/export.js";
+import multipart from "@fastify/multipart";
+server.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
 server.register(authRoutes, { prefix: "/api/v1/auth" });
 server.register(partyRoutes, { prefix: "/api/v1/parties" });

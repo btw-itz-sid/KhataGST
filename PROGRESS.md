@@ -20,7 +20,7 @@
 | AI | Anthropic Claude API (bill scan) | CODE READY |
 | Payments | Razorpay | NOT INTEGRATED |
 | WhatsApp | Twilio WABA | NOT INTEGRATED |
-| Frontend | React 18 + Vite + TailwindCSS | NOT STARTED |
+| Frontend | React 18 + Vite + TailwindCSS | IN PROGRESS |
 | Hosting | Railway (backend) + Vercel (frontend) | NOT DEPLOYED |
 | Auth | Phone OTP + JWT (30 day token) | WORKING |
 | Export | ExcelJS (Excel + CSV) | WORKING |
@@ -91,6 +91,46 @@
 - [x] return_status enum updated in Neon — added 'ready_to_file' ✅
 - [x] ExcelJS installed ✅
 - [x] PRD v2.0 updated (KhataGST_PRD_v2.docx)
+- [x] React + Vite + Tailwind setup ✅
+- [x] Login.tsx — Phone input + OTP screen with useState ✅
+- [x] Tailwind @tailwindcss/vite plugin configured ✅
+
+### Day 7 — React Frontend (4 Pages Complete)
+- [x] `frontend/src/App.tsx` — full routing with auth guard ✅
+  - localStorage token check on mount
+  - Auto-redirect: no token → Login, token valid → Dashboard
+  - handleLoginSuccess() stores token + businessId + expiry
+  - handleLogout() clears localStorage
+  - BottomNav shared across all pages
+- [x] `frontend/src/pages/Login.tsx` — complete OTP flow ✅
+  - Phone input with +91 prefix
+  - 6-box OTP entry — auto-advance, backspace, paste support
+  - Auto-submit when all 6 digits filled
+  - Dev mode OTP hint (shows dev_otp from backend)
+  - 30s resend countdown timer
+  - onSuccess(token, businessId) prop — wired to App.tsx
+  - Auto-fetches business ID after OTP verify
+- [x] `frontend/src/pages/Dashboard.tsx` — summary + due dates ✅
+  - GSTR-1 + GSTR-3B due date banners with live countdown
+  - Color shifts green → orange → red as deadline approaches
+  - 4 summary cards: Sales, Purchases, ITC Available, Tax Payable
+  - Recent invoices list with GST status badges
+  - Falls back to mock data if API unavailable
+- [x] `frontend/src/pages/Scan.tsx` — bill scan 4-step flow ✅
+  - Step 1: Drag/drop or camera capture upload
+  - Step 2: Animated scan line while Claude processes
+  - Step 3: Full review form — all fields editable
+  - Step 4: Done screen with option to scan another
+  - Confidence bar — green 85%+, orange 65–84%, red below 65
+  - Falls back to mock extracted data in dev mode
+- [x] `frontend/src/pages/Invoices.tsx` — invoice list ✅
+  - Live search by party name, invoice number, GSTIN
+  - 3 tabs: All / ↑ Sales / ↓ Purchases
+  - Sort by: Latest date / Amount / Party A–Z
+  - Summary strip showing total sales vs purchases
+  - Tap any card → full detail drawer (inline, no new page)
+  - GST status badges: Matched / Pending / Mismatch
+  - Empty state for no invoices + no search results
 
 ---
 
@@ -130,10 +170,21 @@
 | Export | GET /api/v1/export/excel | ✅ |
 | Export | GET /api/v1/export/csv | ✅ |
 
-### Day 6 — React Frontend Setup
-- [x] React + Vite + Tailwind setup ✅
-- [x] Login.tsx — Phone input + OTP screen with useState ✅
-- [x] Tailwind @tailwindcss/vite plugin configured ✅
+---
+
+## 🖥️ Frontend Pages — Status
+
+| Page | File | Status | Notes |
+|------|------|--------|-------|
+| Login | pages/Login.tsx | ✅ DONE | OTP flow, onSuccess prop wired |
+| Dashboard | pages/Dashboard.tsx | ✅ DONE | Summary cards, due dates, recent invoices |
+| Scan | pages/Scan.tsx | ✅ DONE | 4-step flow, confidence bar, review form |
+| Invoices | pages/Invoices.tsx | ✅ DONE | Search, tabs, sort, detail drawer |
+| Routing | App.tsx | ✅ DONE | Auth guard, BottomNav, all routes |
+| Onboarding | pages/Onboarding.tsx | ⏳ PENDING | 3-step wizard — next session |
+| Export | pages/Export.tsx | ⏳ PENDING | Excel/CSV download with month filter |
+| Profile | pages/Profile.tsx | ⏳ PENDING | Business settings, plan info, logout |
+| Pricing | pages/Pricing.tsx | ⏳ PENDING | Plan cards + Razorpay checkout |
 
 ---
 
@@ -143,6 +194,10 @@
 3. **businesses table** = `owner_id` (not `user_id`)
 4. **Bill scan** = USE_MOCK = true in scans.ts
 5. **Neon DB** = needs SSL: rejectUnauthorized: false
+6. **Frontend folder** = `C:\Users\HP\OneDrive\Desktop\KhataGST\frontend\`
+7. **Frontend runs on** = `localhost:5173` (npm run dev)
+8. **Backend runs on** = `localhost:3000` (npx tsx src/index.ts)
+9. **All pages fall back to mock data** if backend not running
 
 ## 🔑 Test IDs (Neon mein saved)
 ```
@@ -156,6 +211,8 @@ Token valid till: April 21, 2026
 ---
 
 ## 🏃 How to Run
+
+### Backend
 ```bash
 cd C:\Users\HP\OneDrive\Desktop\KhataGST
 npx tsx src/index.ts
@@ -163,11 +220,35 @@ npx tsx src/index.ts
 # Health: http://localhost:3000/health
 ```
 
+### Frontend
+```bash
+cd C:\Users\HP\OneDrive\Desktop\KhataGST\frontend
+npm run dev
+# App: http://localhost:5173
+```
+
+### Folder structure
+```
+KhataGST\
+├── src\                    ← Backend (Node.js + Fastify)
+│   ├── routes\
+│   ├── services\
+│   └── index.ts
+└── frontend\               ← Frontend (React + Vite)
+    └── src\
+        ├── App.tsx          ← Router + auth guard
+        └── pages\
+            ├── Login.tsx
+            ├── Dashboard.tsx
+            ├── Scan.tsx
+            └── Invoices.tsx
+```
+
 ---
 
-## 🗺️ FULL REMAINING ROADMAP
+## 🗺️ REMAINING ROADMAP
 
-### 🔴 Week 7 — Real Bill Scan + Redis
+### 🔴 Week 7 — Real Bill Scan + Redis (BACKEND)
 | Task | Effort | Details |
 |------|--------|---------|
 | Anthropic API key lena | 0.5 day | console.anthropic.com — pay as you go |
@@ -176,25 +257,16 @@ npx tsx src/index.ts
 | Upstash Redis OTP | 1 day | Production-safe OTP storage |
 | Bill scan end-to-end test | 1 day | Real GST invoice photo test karo |
 
-### 🟡 Week 8 — React Frontend
+### 🟡 Week 8 — Frontend Remaining Pages
 | Page | Effort | Details |
 |------|--------|---------|
-| React + Vite + Tailwind setup | 0.5 day | /frontend folder |
-| Login.tsx | 1 day | Phone input + OTP screen |
 | Onboarding.tsx | 1 day | 3-step wizard — business name, GST type, state |
-| Dashboard.tsx | 2 days | Summary cards + due date alerts + recent invoices |
-| Scan.tsx | 2 days | Camera upload + extracted data review form |
-
-### 🟡 Week 9 — Frontend Complete
-| Page | Effort | Details |
-|------|--------|---------|
-| Invoices.tsx | 1 day | List with search, filter, tabs (Sales/Purchase) |
 | Export.tsx | 0.5 day | Excel/CSV download with month filter |
 | Profile.tsx | 0.5 day | Business settings, plan info, logout |
 | Pricing.tsx | 1 day | Plan cards + Razorpay checkout |
-| Mobile PWA setup | 0.5 day | works on phone browser |
+| Mobile PWA setup | 0.5 day | manifest.json + service worker |
 
-### 🟢 Week 10 — Deploy + Beta Users
+### 🟢 Week 9 — Deploy + Beta Users
 | Task | Effort | Details |
 |------|--------|---------|
 | Railway backend deploy | 1 day | Add all .env vars, health check |
@@ -202,12 +274,12 @@ npx tsx src/index.ts
 | End-to-end live test | 0.5 day | Full flow on live URL |
 | Find 5 beta users | 2 days | Local dukaan owners — free 30 day access |
 
-### 🟠 Week 11-12 — Monetization
+### 🟠 Week 10-11 — Monetization
 | Task | Effort | Details |
 |------|--------|---------|
 | Razorpay subscriptions | 2 days | Create order, verify, update plan |
 | WhatsApp due date reminders | 1 day | Twilio WABA — Hindi mein |
-| First paying customer | — | Target: Week 12 |
+| First paying customer | — | Target: Week 11 |
 
 ### 🔵 Phase 2 — After 100 Users
 | Task | Details |
@@ -223,17 +295,17 @@ npx tsx src/index.ts
 ## 📊 Timeline Summary
 ```
 Day 1-6  ✅ Backend complete (90%)
-Week 7   → Real bill scan + Redis
-Week 8   → React frontend
-Week 9   → Frontend complete
-Week 10  → Deploy + beta users
-Week 12  → First paying customer 💰
+Day 7    ✅ Frontend 55% — Login, Dashboard, Scan, Invoices, App routing
+Week 7   → Real bill scan (Anthropic API key + R2)
+Week 8   → Remaining frontend pages (Onboarding, Export, Profile, Pricing)
+Week 9   → Deploy (Railway + Vercel) + 5 beta users
+Week 11  → First paying customer 💰
 Month 3  → 100 paid — break even
 Month 12 → 2000+ — seed ready 🚀
 ```
 
 ---
 
-*Last updated: March 22, 2026 — Day 6 complete*
-*Backend: 90% | Frontend: 5% | Deployed: No*
-*Next session: summary cards (purchases, sales, ITC, tax)*
+*Last updated: March 22, 2026 — Day 7 complete*
+*Backend: 90% | Frontend: 55% | Deployed: No*
+*Next session: Onboarding.tsx / Export.tsx / Profile.tsx*
