@@ -66,6 +66,15 @@ export interface ExtractedBillData {
   action: "auto" | "review" | "manual";
 }
 
+export interface ScanBillResult {
+  extracted_data: ExtractedBillData;
+  confidence_score: number;
+  action: "auto" | "review" | "manual";
+  raw_response: string;
+  fallback_mode?: "manual_review";
+  fallback_reason?: string;
+}
+
 export function getScanAction(confidence: number): {
   action: "auto" | "review" | "manual";
 } {
@@ -253,12 +262,41 @@ function parseExtractedBillData(rawText: string): ExtractedBillData {
   );
 }
 
-export async function scanBillWithAI(imagePath: string): Promise<{
-  extracted_data: ExtractedBillData;
-  confidence_score: number;
-  action: string;
-  raw_response: string;
-}> {
+export function createManualReviewFallback(reason: string): ScanBillResult {
+  return {
+    extracted_data: {
+      invoice_number: "",
+      vendor_name: "",
+      vendor_gstin: "",
+      invoice_date: "",
+      taxable_amount: 0,
+      gst_rate: 0,
+      cgst_amount: 0,
+      sgst_amount: 0,
+      igst_amount: 0,
+      total_amount: 0,
+      hsn_code: "",
+      confidence: 0,
+      action: "manual",
+    },
+    confidence_score: 0,
+    action: "manual",
+    raw_response: "",
+    fallback_mode: "manual_review",
+    fallback_reason: reason,
+  };
+}
+
+export function shouldUseManualReviewFallback(error: unknown): boolean {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  return /429|quota|rate limit|resource_exhausted|temporarily unavailable|service unavailable|overloaded|fetch failed|network|econnreset|etimedout/i.test(
+    message
+  );
+}
+
+export async function scanBillWithAI(imagePath: string): Promise<ScanBillResult> {
   if (!GEMINI_API_KEY) {
     throw new Error("Gemini API key missing hai. GEMINI_API_KEY set karo.");
   }
@@ -314,7 +352,7 @@ Important rules:
           temperature: 0.1,
           maxOutputTokens: 1000,
           responseMimeType: "application/json",
-          responseJsonSchema: BILL_EXTRACTION_SCHEMA,
+          responseSchema: BILL_EXTRACTION_SCHEMA,
         },
       }),
     });

@@ -49,6 +49,38 @@ const STATES = [
   { label: "West Bengal", code: "19" },
 ] as const;
 
+const REG_OPTIONS: {
+  value: RegistrationType;
+  icon: string;
+  title: string;
+  description: string;
+}[] = [
+  {
+    value: "regular",
+    icon: "📋",
+    title: "Regular",
+    description: "Normal GST registration with returns filing.",
+  },
+  {
+    value: "composition",
+    icon: "📦",
+    title: "Composition",
+    description: "Composition scheme business.",
+  },
+  {
+    value: "unregistered",
+    icon: "🏪",
+    title: "Unregistered",
+    description: "No GSTIN yet, maintain business records.",
+  },
+];
+
+const STEP_META = [
+  { tag: "Step 1 of 3", title: "Tell us about your business", desc: "Bas basic details do. Isse onboarding complete hoga aur dashboard ready milega." },
+  { tag: "Step 2 of 3", title: "GST setup", desc: "Registration type aur state ke basis par tax calculation align hoga." },
+  { tag: "Step 3 of 3", title: "You're all set!", desc: "" },
+];
+
 export default function Onboarding({
   token,
   onComplete,
@@ -66,7 +98,7 @@ export default function Onboarding({
   const [createdBusiness, setCreatedBusiness] =
     useState<StoredBusinessContext | null>(null);
 
-  const selectedState = STATES.find((state) => state.code === stateCode) ?? null;
+  const selectedState = STATES.find((s) => s.code === stateCode) ?? null;
   const requiresGstin = registrationType !== "unregistered";
 
   async function handleSubmit() {
@@ -145,444 +177,941 @@ export default function Onboarding({
     }
   }
 
+  const meta = STEP_META[step - 1];
+
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Space+Mono:wght@700&display=swap');
-        body {
-          margin: 0;
-          background: #f5f3ef;
-          color: #1a1611;
-          font-family: 'Sora', sans-serif;
-        }
-        .page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px 16px;
-          background:
-            radial-gradient(circle at top left, rgba(255,107,0,0.08), transparent 32%),
-            linear-gradient(180deg, #f5f3ef 0%, #efeae2 100%);
-        }
-        .card {
-          width: 100%;
-          max-width: 520px;
-          background: #fff;
-          border: 1px solid #e5e1d8;
-          border-radius: 20px;
-          box-shadow: 0 18px 48px rgba(26, 22, 17, 0.08);
-          overflow: hidden;
-        }
-        .card-top {
-          padding: 24px 24px 12px;
-          background: linear-gradient(180deg, #fff7ef 0%, rgba(255,255,255,0) 100%);
-        }
-        .brand {
-          font-family: 'Space Mono', monospace;
-          font-size: 20px;
-          font-weight: 700;
-          margin-bottom: 4px;
-        }
-        .brand span { color: #ff6b00; }
-        .subtle {
-          font-size: 12px;
-          color: #6b6457;
-        }
-        .content {
-          padding: 8px 24px 24px;
-        }
-        .progress {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 8px;
-          margin: 14px 0 24px;
-        }
-        .progress div {
-          height: 4px;
-          border-radius: 999px;
-          background: #e5e1d8;
-        }
-        .progress div.active {
-          background: #16a34a;
-        }
-        .step-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 5px 10px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 700;
-          color: #ff6b00;
-          background: #fff3e8;
-          margin-bottom: 14px;
-        }
-        .title {
-          font-size: 22px;
-          font-weight: 700;
-          margin: 0 0 6px;
-        }
-        .desc {
-          font-size: 13px;
-          color: #6b6457;
-          margin: 0 0 22px;
-          line-height: 1.6;
-        }
-        .error-box {
-          margin-bottom: 16px;
-          border: 1px solid #fca5a5;
-          border-radius: 12px;
-          background: #fef2f2;
-          color: #dc2626;
-          padding: 12px 14px;
-          font-size: 13px;
-        }
-        .label {
-          display: block;
-          font-size: 12px;
-          font-weight: 700;
-          color: #6b6457;
-          margin-bottom: 6px;
-          letter-spacing: 0.2px;
-        }
-        .input,
-        .select {
-          width: 100%;
-          border: 1.5px solid #e5e1d8;
-          border-radius: 12px;
-          padding: 13px 14px;
-          font: inherit;
-          color: #1a1611;
-          background: #fafaf8;
-          outline: none;
-          transition: border-color 0.15s, background 0.15s;
-          margin-bottom: 16px;
-          box-sizing: border-box;
-        }
-        .input:focus,
-        .select:focus {
-          border-color: #ff6b00;
-          background: #fff;
-        }
-        .choice-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-          margin-bottom: 16px;
-        }
-        .choice {
-          border: 1.5px solid #e5e1d8;
-          border-radius: 14px;
-          background: #fff;
-          padding: 12px 10px;
-          text-align: left;
-          cursor: pointer;
-          transition: border-color 0.15s, background 0.15s, transform 0.15s;
-        }
-        .choice:hover {
-          border-color: #ff6b00;
-          transform: translateY(-1px);
-        }
-        .choice.active {
-          border-color: #ff6b00;
-          background: #fff3e8;
-        }
-        .choice-title {
-          font-size: 12px;
-          font-weight: 700;
-          margin-bottom: 4px;
-        }
-        .choice-desc {
-          font-size: 11px;
-          color: #6b6457;
-          line-height: 1.45;
-        }
-        .helper {
-          margin: -8px 0 16px;
-          font-size: 12px;
-          color: #6b6457;
-          line-height: 1.5;
-        }
-        .state-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          margin: -6px 0 16px;
-          padding: 6px 10px;
-          border-radius: 999px;
-          background: #f5f3ef;
-          color: #6b6457;
-          font-size: 11px;
-          font-weight: 700;
-        }
-        .actions {
-          display: flex;
-          gap: 10px;
-          margin-top: 8px;
-        }
-        .btn-primary,
-        .btn-secondary {
-          width: 100%;
-          border: none;
-          border-radius: 12px;
-          padding: 14px 16px;
-          font: inherit;
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: opacity 0.15s, transform 0.15s;
-        }
-        .btn-primary {
-          background: #16a34a;
-          color: #fff;
-        }
-        .btn-primary:hover,
-        .btn-secondary:hover {
-          transform: translateY(-1px);
-        }
-        .btn-primary:disabled,
-        .btn-secondary:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-          transform: none;
-        }
-        .btn-secondary {
-          background: #fff;
-          color: #6b6457;
-          border: 1.5px solid #e5e1d8;
-        }
-        .success {
-          text-align: center;
-          padding: 18px 0 10px;
-        }
-        .success-mark {
-          width: 72px;
-          height: 72px;
-          margin: 0 auto 18px;
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
-          background: #f0fdf4;
-          color: #16a34a;
-          font-size: 30px;
-          font-weight: 700;
-        }
-        .success-note {
-          font-size: 13px;
-          line-height: 1.7;
-          color: #6b6457;
-          margin-bottom: 22px;
-        }
-        @media (max-width: 560px) {
-          .card-top,
-          .content {
-            padding-left: 18px;
-            padding-right: 18px;
-          }
-          .choice-grid {
-            grid-template-columns: 1fr;
-          }
-          .actions {
-            flex-direction: column;
-          }
-        }
-      `}</style>
+      <style>{STYLES}</style>
 
-      <div className="page">
-        <div className="card">
-          <div className="card-top">
-            <div className="brand">
+      <div className="ob-shell">
+        {/* ── Left showcase panel ──────────────────── */}
+        <section className="ob-showcase">
+          <div className="ob-orb ob-orb-1" />
+          <div className="ob-orb ob-orb-2" />
+          <div className="ob-orb ob-orb-3" />
+          <div className="ob-mesh" />
+
+          <div className="ob-showcase-inner">
+            <div className="ob-brand anim-fade" style={{ animationDelay: "0s" }}>
               Khata<span>GST</span>
             </div>
-            <div className="subtle">Business setup wizard</div>
-          </div>
 
-          <div className="content">
-            <div className="progress">
-              {[1, 2, 3].map((item) => (
-                <div key={item} className={item <= step ? "active" : ""} />
+            <div className="ob-showcase-main">
+              <div className="ob-kicker anim-fade" style={{ animationDelay: "0.15s" }}>
+                Business Setup Wizard
+              </div>
+              <h1 className="anim-fade" style={{ animationDelay: "0.3s" }}>
+                Get your<br />workspace<br />ready in<br />3 easy steps.
+              </h1>
+              <p className="ob-showcase-copy anim-fade" style={{ animationDelay: "0.5s" }}>
+                Add your business details, select your GST registration
+                type, and you'll have a full-featured dashboard within seconds.
+              </p>
+            </div>
+
+            <div className="ob-features anim-fade" style={{ animationDelay: "0.65s" }}>
+              <div className="ob-feature-card">
+                <div className="ob-feature-icon">⚡</div>
+                <span>Setup</span>
+                <strong>Under 2 min</strong>
+              </div>
+              <div className="ob-feature-card">
+                <div className="ob-feature-icon">🛡️</div>
+                <span>Compliance</span>
+                <strong>GST-ready</strong>
+              </div>
+              <div className="ob-feature-card">
+                <div className="ob-feature-icon">🤖</div>
+                <span>AI</span>
+                <strong>Auto-scan bills</strong>
+              </div>
+            </div>
+
+            <div className="ob-showcase-note anim-fade" style={{ animationDelay: "0.8s" }}>
+              Your data is encrypted and securely stored on Neon cloud infrastructure.
+            </div>
+          </div>
+        </section>
+
+        {/* ── Right form panel ─────────────────────── */}
+        <section className="ob-panel">
+          <div className="ob-card anim-scale">
+            <div className="ob-mobile-brand">
+              Khata<span>GST</span>
+            </div>
+
+            {/* ── Progress bar ─────────────────────── */}
+            <div className="ob-progress">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className={`ob-progress-seg ${i <= step ? "active" : ""} ${i === step ? "current" : ""}`} />
               ))}
             </div>
 
+            {/* ── Step tag + title ──────────────────── */}
+            <div className="ob-step-tag anim-slide" style={{ animationDelay: "0.05s" }}>
+              {meta.tag}
+            </div>
+            <h2 className="ob-title anim-slide" style={{ animationDelay: "0.15s" }}>
+              {step === 3 && createdBusiness ? "You're all set!" : meta.title}
+            </h2>
+            {meta.desc && (
+              <p className="ob-desc anim-slide" style={{ animationDelay: "0.25s" }}>
+                {meta.desc}
+              </p>
+            )}
+
+            {/* ── Error ────────────────────────────── */}
+            {error && <div className="ob-error shake">{error}</div>}
+
+            {/* ── Step 1: Business info ─────────────── */}
             {step === 1 && (
               <>
-                <div className="step-tag">Step 1 of 3</div>
-                <h2 className="title">Tell us about your business</h2>
-                <p className="desc">
-                  Bas basic details do. Isse onboarding complete hoga aur dashboard
-                  ready milega.
-                </p>
-
-                {error && <div className="error-box">{error}</div>}
-
-                <label className="label">Business Name</label>
-                <input
-                  className="input"
-                  placeholder="Ramesh General Store"
-                  value={businessName}
-                  onChange={(event) => setBusinessName(event.target.value)}
-                />
-
-                <label className="label">Owner Name</label>
-                <input
-                  className="input"
-                  placeholder="Ramesh Kumar"
-                  value={ownerName}
-                  onChange={(event) => setOwnerName(event.target.value)}
-                />
-
-                <div className="actions">
-                  <button
-                    className="btn-primary"
-                    onClick={() => {
-                      setError(null);
-                      setStep(2);
-                    }}
-                    disabled={!businessName.trim() || !ownerName.trim()}
-                  >
-                    Continue
-                  </button>
+                <label className="ob-label anim-slide" style={{ animationDelay: "0.3s" }}>
+                  Business Name
+                </label>
+                <div className="ob-field-wrap anim-slide" style={{ animationDelay: "0.35s" }}>
+                  <span className="ob-field-icon">🏢</span>
+                  <input
+                    className="ob-input"
+                    placeholder="Ramesh General Store"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                  />
                 </div>
+
+                <label className="ob-label anim-slide" style={{ animationDelay: "0.4s" }}>
+                  Owner Name
+                </label>
+                <div className="ob-field-wrap anim-slide" style={{ animationDelay: "0.45s" }}>
+                  <span className="ob-field-icon">👤</span>
+                  <input
+                    className="ob-input"
+                    placeholder="Ramesh Kumar"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  className="ob-cta anim-slide"
+                  style={{ animationDelay: "0.55s" }}
+                  onClick={() => {
+                    setError(null);
+                    setStep(2);
+                  }}
+                  disabled={!businessName.trim() || !ownerName.trim()}
+                >
+                  <span className="ob-cta-text">Continue</span>
+                  <span className="ob-cta-arrow">→</span>
+                  <span className="ob-cta-shimmer" />
+                </button>
               </>
             )}
 
+            {/* ── Step 2: GST setup ────────────────── */}
             {step === 2 && (
               <>
-                <div className="step-tag">Step 2 of 3</div>
-                <h2 className="title">GST setup</h2>
-                <p className="desc">
-                  Registration type aur state ke basis par tax calculation align
-                  hoga.
-                </p>
-
-                {error && <div className="error-box">{error}</div>}
-
-                <label className="label">Registration Type</label>
-                <div className="choice-grid">
-                  {[
-                    {
-                      value: "regular" as const,
-                      title: "Regular",
-                      description: "Normal GST registration with returns filing.",
-                    },
-                    {
-                      value: "composition" as const,
-                      title: "Composition",
-                      description: "Composition scheme business.",
-                    },
-                    {
-                      value: "unregistered" as const,
-                      title: "Unregistered",
-                      description: "No GSTIN yet, but business records maintain karne hain.",
-                    },
-                  ].map((item) => (
+                <label className="ob-label anim-slide" style={{ animationDelay: "0.3s" }}>
+                  Registration Type
+                </label>
+                <div className="ob-reg-grid anim-slide" style={{ animationDelay: "0.35s" }}>
+                  {REG_OPTIONS.map((opt) => (
                     <button
-                      key={item.value}
-                      className={`choice ${
-                        registrationType === item.value ? "active" : ""
-                      }`}
+                      key={opt.value}
+                      className={`ob-reg-card ${registrationType === opt.value ? "active" : ""}`}
                       onClick={() => {
-                        setRegistrationType(item.value);
+                        setRegistrationType(opt.value);
                         setError(null);
                       }}
                     >
-                      <div className="choice-title">{item.title}</div>
-                      <div className="choice-desc">{item.description}</div>
+                      <div className="ob-reg-icon">{opt.icon}</div>
+                      <div className="ob-reg-title">{opt.title}</div>
+                      <div className="ob-reg-desc">{opt.description}</div>
+                      {registrationType === opt.value && (
+                        <div className="ob-reg-check">✓</div>
+                      )}
                     </button>
                   ))}
                 </div>
 
-                <label className="label">State</label>
-                <select
-                  className="select"
-                  value={stateCode}
-                  onChange={(event) => {
-                    setStateCode(event.target.value);
-                    setError(null);
-                  }}
-                >
-                  <option value="">Select your state</option>
-                  {STATES.map((state) => (
-                    <option key={state.code} value={state.code}>
-                      {state.label}
-                    </option>
-                  ))}
-                </select>
+                <label className="ob-label anim-slide" style={{ animationDelay: "0.4s" }}>
+                  State
+                </label>
+                <div className="ob-field-wrap anim-slide" style={{ animationDelay: "0.45s" }}>
+                  <span className="ob-field-icon">📍</span>
+                  <select
+                    className="ob-select"
+                    value={stateCode}
+                    onChange={(e) => {
+                      setStateCode(e.target.value);
+                      setError(null);
+                    }}
+                  >
+                    <option value="">Select your state</option>
+                    {STATES.map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 {selectedState && (
-                  <div className="state-chip">
+                  <div className="ob-state-chip anim-slide" style={{ animationDelay: "0.5s" }}>
+                    <span className="ob-chip-dot" />
                     GST state code {selectedState.code}: {selectedState.label}
                   </div>
                 )}
 
                 {requiresGstin && (
                   <>
-                    <label className="label">GSTIN</label>
-                    <input
-                      className="input"
-                      placeholder="27ABCDE1234F1Z5"
-                      value={gstin}
-                      onChange={(event) => {
-                        setGstin(event.target.value.toUpperCase());
-                        setError(null);
-                      }}
-                      maxLength={15}
-                    />
-                    <div className="helper">
-                      Regular aur composition business ke liye actual GSTIN dena
-                      zaroori hai.
+                    <label className="ob-label anim-slide" style={{ animationDelay: "0.52s" }}>
+                      GSTIN
+                    </label>
+                    <div className="ob-field-wrap anim-slide" style={{ animationDelay: "0.55s" }}>
+                      <span className="ob-field-icon">🔢</span>
+                      <input
+                        className="ob-input"
+                        placeholder="27ABCDE1234F1Z5"
+                        value={gstin}
+                        onChange={(e) => {
+                          setGstin(e.target.value.toUpperCase());
+                          setError(null);
+                        }}
+                        maxLength={15}
+                      />
+                    </div>
+                    <div className="ob-helper">
+                      Regular aur composition business ke liye actual GSTIN dena zaroori hai.
                     </div>
                   </>
                 )}
 
                 {!requiresGstin && (
-                  <div className="helper">
-                    GSTIN optional hai. App business profile create karke aapko
-                    dashboard par le jayega.
+                  <div className="ob-helper anim-slide" style={{ animationDelay: "0.5s" }}>
+                    GSTIN optional hai. App business profile create karke aapko dashboard par le jayega.
                   </div>
                 )}
 
-                <div className="actions">
+                <div className="ob-actions anim-slide" style={{ animationDelay: "0.6s" }}>
                   <button
-                    className="btn-secondary"
+                    className="ob-btn-back"
                     onClick={() => {
                       setError(null);
                       setStep(1);
                     }}
                   >
-                    Go Back
+                    ← Back
                   </button>
                   <button
-                    className="btn-primary"
+                    className="ob-cta"
                     onClick={handleSubmit}
                     disabled={!stateCode || loading}
                   >
-                    {loading ? "Saving..." : "Complete Setup"}
+                    <span className="ob-cta-text">
+                      {loading ? "Saving..." : "Complete Setup"}
+                    </span>
+                    <span className="ob-cta-shimmer" />
                   </button>
                 </div>
               </>
             )}
 
+            {/* ── Step 3: Success ──────────────────── */}
             {step === 3 && createdBusiness && (
-              <div className="success">
-                <div className="success-mark">OK</div>
-                <h2 className="title">Business ready</h2>
-                <p className="success-note">
-                  {createdBusiness.name} ka profile create ho gaya hai. Ab aap
-                  dashboard, scan aur invoices use kar sakte ho.
+              <div className="ob-success">
+                <div className="ob-success-ring">
+                  <svg viewBox="0 0 52 52" className="ob-checkmark-svg">
+                    <circle className="ob-check-circle" cx="26" cy="26" r="24" fill="none" />
+                    <path className="ob-check-path" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                  </svg>
+                </div>
+                <p className="ob-success-biz">{createdBusiness.name}</p>
+                <p className="ob-success-note">
+                  Ka profile create ho gaya hai. Ab aap dashboard, scan aur invoices use kar sakte ho.
                 </p>
                 <button
-                  className="btn-primary"
+                  className="ob-cta"
                   onClick={() => onComplete(createdBusiness)}
                 >
-                  Go To Dashboard
+                  <span className="ob-cta-text">Go To Dashboard</span>
+                  <span className="ob-cta-arrow">→</span>
+                  <span className="ob-cta-shimmer" />
                 </button>
               </div>
             )}
+
+            <div className="ob-footer">
+              Your data is encrypted and stored securely.
+            </div>
           </div>
-        </div>
+        </section>
       </div>
     </>
   );
 }
+
+/* ═══════════════════════════════════════════════════════
+   STYLES — Premium split-panel design matching Login.tsx
+   ═══════════════════════════════════════════════════════ */
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+  * { box-sizing: border-box; }
+
+  :root {
+    --ob-bg: #0a0e1a;
+    --ob-brand: #ff6b00;
+    --ob-brand-light: #ff8a3d;
+    --ob-brand-glow: rgba(255, 107, 0, 0.35);
+    --ob-text: #f1f5f9;
+    --ob-text-dark: #0f172a;
+    --ob-muted: #94a3b8;
+    --ob-soft: #64748b;
+    --ob-card-bg: rgba(255, 255, 255, 0.97);
+    --ob-card-border: rgba(226, 232, 240, 0.6);
+    --ob-success: #16a34a;
+    --ob-danger: #ef4444;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ob-bg);
+    color: var(--ob-text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Shell ─────────────────────────────────────── */
+  .ob-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+  }
+
+  /* ── Showcase (left) ───────────────────────────── */
+  .ob-showcase {
+    position: relative;
+    overflow: hidden;
+    padding: 48px;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(255, 107, 0, 0.15), transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(99, 102, 241, 0.12), transparent 50%),
+      linear-gradient(160deg, #0f172a 0%, #0c1222 40%, #131b30 100%);
+  }
+
+  .ob-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .ob-orb-1 {
+    width: 420px; height: 420px;
+    top: -120px; right: -80px;
+    background: radial-gradient(circle, rgba(255, 107, 0, 0.4), transparent 70%);
+    animation: ob-float1 12s ease-in-out infinite;
+  }
+  .ob-orb-2 {
+    width: 320px; height: 320px;
+    bottom: -80px; left: -90px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.3), transparent 70%);
+    animation: ob-float2 15s ease-in-out infinite;
+  }
+  .ob-orb-3 {
+    width: 200px; height: 200px;
+    top: 45%; left: 50%;
+    background: radial-gradient(circle, rgba(255, 107, 0, 0.2), transparent 70%);
+    animation: ob-float3 10s ease-in-out infinite;
+  }
+
+  @keyframes ob-float1 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(-30px,40px) scale(1.1); }
+    66% { transform: translate(20px,-20px) scale(0.95); }
+  }
+  @keyframes ob-float2 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(40px,-30px) scale(1.05); }
+    66% { transform: translate(-20px,40px) scale(0.9); }
+  }
+  @keyframes ob-float3 {
+    0%, 100% { transform: translate(0,0) scale(1); opacity: 0.3; }
+    50% { transform: translate(-40px,30px) scale(1.2); opacity: 0.5; }
+  }
+
+  .ob-mesh {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  }
+
+  .ob-showcase-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    gap: 24px;
+  }
+
+  .ob-brand, .ob-mobile-brand {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .ob-brand span, .ob-mobile-brand span {
+    background: linear-gradient(135deg, #ff6b00, #ff8a3d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .ob-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+
+  .ob-showcase-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .ob-showcase-inner h1 {
+    margin: 14px 0 0;
+    font-size: clamp(38px, 5vw, 60px);
+    line-height: 0.98;
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    background: linear-gradient(180deg, #fff 20%, rgba(255,255,255,0.65) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .ob-showcase-copy {
+    max-width: 48ch;
+    margin: 24px 0 0;
+    font-size: 15px;
+    line-height: 1.8;
+    color: rgba(255,255,255,0.55);
+  }
+
+  .ob-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .ob-feature-card {
+    padding: 18px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(12px);
+    transition: transform 0.3s, border-color 0.3s, background 0.3s;
+  }
+  .ob-feature-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255,107,0,0.25);
+    background: rgba(255,255,255,0.07);
+  }
+  .ob-feature-icon { font-size: 20px; margin-bottom: 10px; }
+  .ob-feature-card span {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+  }
+  .ob-feature-card strong {
+    font-size: 15px;
+    line-height: 1.3;
+    color: #fff;
+  }
+
+  .ob-showcase-note {
+    max-width: 42ch;
+    font-size: 13px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── Right panel ───────────────────────────────── */
+  .ob-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 28px;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255,107,0,0.04), transparent 50%),
+      linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    overflow-y: auto;
+  }
+
+  .ob-card {
+    width: 100%;
+    max-width: 460px;
+    padding: 36px 32px;
+    border-radius: 28px;
+    border: 1px solid var(--ob-card-border);
+    background: var(--ob-card-bg);
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.04),
+      0 8px 24px rgba(0,0,0,0.06),
+      0 24px 48px rgba(0,0,0,0.04);
+  }
+
+  .ob-mobile-brand {
+    display: none;
+    margin-bottom: 24px;
+    color: var(--ob-text-dark);
+  }
+
+  /* ── Progress bar ──────────────────────────────── */
+  .ob-progress {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .ob-progress-seg {
+    height: 5px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    transition: background 0.4s ease, box-shadow 0.4s ease;
+  }
+  .ob-progress-seg.active {
+    background: linear-gradient(90deg, var(--ob-brand), var(--ob-brand-light));
+  }
+  .ob-progress-seg.current {
+    box-shadow: 0 0 12px var(--ob-brand-glow);
+  }
+
+  /* ── Step tag ──────────────────────────────────── */
+  .ob-step-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ob-brand);
+    background: rgba(255,107,0,0.08);
+    margin-bottom: 12px;
+  }
+
+  .ob-title {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--ob-text-dark);
+    line-height: 1.1;
+  }
+
+  .ob-desc {
+    margin: 0 0 22px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ob-soft);
+  }
+
+  /* ── Error ─────────────────────────────────────── */
+  .ob-error {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(239,68,68,0.25);
+    background: rgba(239,68,68,0.06);
+    color: var(--ob-danger);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  /* ── Input fields ──────────────────────────────── */
+  .ob-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ob-soft);
+    letter-spacing: 0.02em;
+  }
+
+  .ob-field-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    margin-bottom: 18px;
+    border-radius: 16px;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .ob-field-wrap:focus-within {
+    border-color: var(--ob-brand);
+    box-shadow: 0 0 0 4px rgba(255,107,0,0.08), 0 0 20px rgba(255,107,0,0.06);
+  }
+
+  .ob-field-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    width: 32px;
+    text-align: center;
+  }
+
+  .ob-input, .ob-select {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--ob-text-dark);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    padding: 10px 0;
+  }
+  .ob-input::placeholder {
+    color: #c1c9d4;
+    font-weight: 400;
+  }
+  .ob-select {
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* ── Registration type cards ───────────────────── */
+  .ob-reg-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .ob-reg-card {
+    position: relative;
+    padding: 16px 12px 14px;
+    border-radius: 18px;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .ob-reg-card:hover {
+    border-color: var(--ob-brand);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255,107,0,0.1);
+  }
+  .ob-reg-card.active {
+    border-color: var(--ob-brand);
+    background: rgba(255,107,0,0.05);
+    box-shadow: 0 0 0 3px rgba(255,107,0,0.1);
+  }
+  .ob-reg-icon { font-size: 22px; margin-bottom: 8px; }
+  .ob-reg-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ob-text-dark);
+    margin-bottom: 4px;
+  }
+  .ob-reg-desc {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--ob-soft);
+  }
+  .ob-reg-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ob-brand);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    animation: ob-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes ob-pop {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── State chip ────────────────────────────────── */
+  .ob-state-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    margin: -8px 0 16px;
+    border-radius: 999px;
+    background: rgba(255,107,0,0.06);
+    border: 1px solid rgba(255,107,0,0.15);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ob-brand);
+  }
+  .ob-chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ob-brand);
+    animation: ob-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes ob-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .ob-helper {
+    margin: -8px 0 18px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ob-soft);
+  }
+
+  /* ── Buttons ───────────────────────────────────── */
+  .ob-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .ob-cta {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin-top: 10px;
+    padding: 16px 20px;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #ff7a1a 0%, #e8590c 50%, #ff6b00 100%);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow:
+      0 8px 20px rgba(234,88,12,0.3),
+      0 2px 6px rgba(234,88,12,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .ob-cta:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      0 12px 28px rgba(234,88,12,0.35),
+      0 4px 10px rgba(234,88,12,0.2);
+  }
+  .ob-cta:active:not(:disabled) { transform: translateY(0); }
+  .ob-cta:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .ob-cta-text { position: relative; z-index: 1; }
+  .ob-cta-arrow {
+    position: relative;
+    z-index: 1;
+    font-size: 17px;
+    transition: transform 0.2s;
+  }
+  .ob-cta:hover:not(:disabled) .ob-cta-arrow { transform: translateX(3px); }
+
+  .ob-cta-shimmer {
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+    pointer-events: none;
+  }
+  .ob-cta:hover:not(:disabled) .ob-cta-shimmer {
+    animation: ob-shimmer 0.8s ease forwards;
+  }
+  @keyframes ob-shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+
+  .ob-btn-back {
+    flex-shrink: 0;
+    padding: 16px 22px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    background: #fff;
+    color: var(--ob-soft);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .ob-btn-back:hover {
+    border-color: var(--ob-brand);
+    color: var(--ob-brand);
+    transform: translateY(-1px);
+  }
+
+  /* ── Success state ─────────────────────────────── */
+  .ob-success {
+    text-align: center;
+    padding: 20px 0 10px;
+  }
+
+  .ob-success-ring {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+  }
+
+  .ob-checkmark-svg {
+    width: 80px;
+    height: 80px;
+  }
+
+  .ob-check-circle {
+    stroke: var(--ob-success);
+    stroke-width: 2;
+    stroke-dasharray: 150.79;
+    stroke-dashoffset: 150.79;
+    animation: ob-circle-draw 0.6s ease-out 0.2s forwards;
+  }
+
+  .ob-check-path {
+    stroke: var(--ob-success);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: ob-check-draw 0.4s ease-out 0.7s forwards;
+  }
+
+  @keyframes ob-circle-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes ob-check-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  .ob-success-biz {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ob-text-dark);
+    letter-spacing: -0.02em;
+  }
+
+  .ob-success-note {
+    margin: 0 0 24px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ob-soft);
+  }
+
+  /* ── Footer ────────────────────────────────────── */
+  .ob-footer {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ob-muted);
+  }
+
+  /* ── Animations ────────────────────────────────── */
+  .anim-fade {
+    opacity: 0;
+    animation: ob-anim-fade 0.7s ease forwards;
+  }
+  @keyframes ob-anim-fade {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .anim-slide {
+    opacity: 0;
+    animation: ob-anim-slide 0.5s ease forwards;
+  }
+  @keyframes ob-anim-slide {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .anim-scale {
+    animation: ob-anim-scale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes ob-anim-scale {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .shake {
+    animation: ob-shake 0.4s ease;
+  }
+  @keyframes ob-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  /* ── Responsive ────────────────────────────────── */
+  @media (max-width: 900px) {
+    .ob-shell {
+      grid-template-columns: 1fr;
+    }
+    .ob-showcase { display: none; }
+    .ob-mobile-brand { display: block; }
+    .ob-panel {
+      min-height: 100vh;
+      padding: 24px 16px;
+      align-items: flex-start;
+      padding-top: 48px;
+    }
+    .ob-card {
+      max-width: 100%;
+      border-radius: 24px;
+      padding: 28px 20px;
+    }
+    .ob-reg-grid {
+      grid-template-columns: 1fr;
+    }
+    .ob-actions {
+      flex-direction: column;
+    }
+  }
+`;

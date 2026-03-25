@@ -143,7 +143,7 @@ export async function authRoutes(app: FastifyInstance) {
       console.warn("DB not connected, using mock user");
       isNewUser = true;
       user = {
-        id: "mock-user-id-123",
+        id: "00000000-0000-4000-8000-000000000000",
         phone,
         name: name ?? "Test User",
         plan: "free",
