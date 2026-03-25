@@ -105,6 +105,11 @@
   - safer frontend error messages
 - Scan flow no longer shows fake mock invoice data after real AI failure
 
+### Day 10 - Premium UI and Hardening
+- Login and Dashboard redesigned with premium UI (glassmorphism, animations)
+- Setup wizard (Onboarding) redesigned with premium split-panel UI
+- UUID type error in new business creation fixed (`auth.ts` fallback logic)
+
 ---
 
 ## Working Features
@@ -272,11 +277,12 @@ Day 1-6  Backend foundation complete
 Day 7    Core frontend screens complete
 Day 8    App flow hardening complete
 Day 9    Security + AI scan reliability pass complete
+Day 10   Premium UI redesign (Login, Dashboard, Onboarding) + Bug fixes
 Next     real OTP provider, export/profile/pricing, deployment
 ```
 
 ---
 
-*Last updated: March 23, 2026*
+*Last updated: March 25, 2026*
 *Backend: 95% | Frontend: 75% | Deployment: Pending*
 *Next focus: real OTP provider, remaining frontend screens, deploy*
