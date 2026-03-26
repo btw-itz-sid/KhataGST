@@ -41,7 +41,6 @@ function formatAmountInput(paise: number): string {
 function parseAmountInput(value: string): number {
   const normalized = value.replace(/,/g, "").trim();
   if (!normalized) return 0;
-
   const rupees = Number(normalized);
   return Number.isFinite(rupees) ? Math.round(rupees * 100) : 0;
 }
@@ -51,31 +50,44 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+// Returns true only for hard failures where retry makes sense
+function isHardFailure(err: unknown): boolean {
+  const message =
+    err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+
+  return (
+    message.includes("429") ||
+    message.includes("quota") ||
+    message.includes("network") ||
+    message.includes("fetch failed") ||
+    message.includes("econnreset") ||
+    message.includes("etimedout") ||
+    message.includes("api key missing") ||
+    message.includes("scan response is incomplete") ||
+    message.includes("temporarily unavailable")
+  );
+}
+
 function getScanFailureMessage(error: unknown): string {
   if (!(error instanceof Error)) {
-    return "The scan could not be completed. Please try another image.";
+    return "Scan complete nahi hua. Dobara try karo.";
   }
 
   const message = error.message.toLowerCase();
 
   if (message.includes("429") || message.includes("quota")) {
-    return "AI scan capacity is currently limited. Try again in a few minutes.";
+    return "AI scan abhi busy hai. Thodi der baad try karo.";
   }
 
-  if (message.includes("gemini") || message.includes("model")) {
-    return "AI scan service is temporarily unavailable. Please retry in a moment.";
+  if (message.includes("network") || message.includes("fetch failed") || message.includes("econnreset")) {
+    return "Network error. Connection check karo aur dobara try karo.";
   }
 
-  if (
-    message.includes("valid json") ||
-    message.includes("double-quoted property name") ||
-    message.includes("unexpected token") ||
-    message.includes("json")
-  ) {
-    return "The scan response was incomplete. Please retry with a clearer image.";
+  if (message.includes("api key missing")) {
+    return "AI scan setup nahi hai. Admin se contact karo.";
   }
 
-  return error.message;
+  return "Scan fail hua. Dobara try karo.";
 }
 
 function getScanNotice(scan: unknown): string | null {
@@ -103,13 +115,12 @@ function getScanNotice(scan: unknown): string | null {
     if (confidence > 0 || invoiceNumber || vendorName) {
       return null;
     }
-
-    return "The scan returned low-confidence data. Complete the invoice fields manually before saving.";
+    return "Scan ne kuch fields extract nahi kiye. Manually fill karke save karo.";
   }
 
   return (
     fallbackReason ||
-    "AI extraction is unavailable right now. Complete the invoice fields manually before saving."
+    "AI extraction abhi available nahi. Fields manually fill karke save karo."
   );
 }
 
@@ -117,13 +128,27 @@ function getConfidenceMeta(confidence: number) {
   if (confidence >= 85) {
     return { tone: "good", label: "High confidence" };
   }
-
   if (confidence >= 65) {
     return { tone: "warn", label: "Review recommended" };
   }
-
   return { tone: "bad", label: "Manual check advised" };
 }
+
+const EMPTY_INVOICE: ScannedInvoiceData = {
+  invoice_number: "",
+  vendor_name: "",
+  vendor_gstin: "",
+  invoice_date: new Date().toISOString().split("T")[0],
+  taxable_amount: 0,
+  gst_rate: 18,
+  cgst_amount: 0,
+  sgst_amount: 0,
+  igst_amount: 0,
+  total_amount: 0,
+  hsn_code: "",
+  confidence: 0,
+  action: "manual",
+};
 
 export default function Scan({ navigate }: Props) {
   const [step, setStep] = useState<
@@ -151,14 +176,12 @@ export default function Scan({ navigate }: Props) {
 
   function handleFile(nextFile: File) {
     if (!nextFile.type.startsWith("image/")) {
-      setError("Upload a valid image file.");
+      setError("Valid image file upload karo.");
       return;
     }
-
     setFile(nextFile);
     setError(null);
     setNotice(null);
-
     const reader = new FileReader();
     reader.onload = (event) => setPreview(event.target?.result as string);
     reader.readAsDataURL(nextFile);
@@ -171,7 +194,7 @@ export default function Scan({ navigate }: Props) {
     const business = getBusinessContext();
 
     if (!token || !business?.id) {
-      setError("Business session missing. Return to dashboard and sign in again.");
+      setError("Business session missing. Dashboard pe wapas jao aur sign in karo.");
       return;
     }
 
@@ -192,13 +215,11 @@ export default function Scan({ navigate }: Props) {
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(payload, "The invoice scan failed.")
-        );
+        throw new Error(getApiErrorMessage(payload, "Invoice scan fail hua."));
       }
 
       const scan = payload?.scan ?? payload?.data ?? null;
-      if (!scan) throw new Error("Scan response is incomplete.");
+      if (!scan) throw new Error("Scan response incomplete hai.");
 
       const extracted = scan.extracted_data ?? scan;
       setNotice(getScanNotice(scan));
@@ -215,16 +236,26 @@ export default function Scan({ navigate }: Props) {
         igst_amount: Number(extracted.igst_amount ?? 0),
         total_amount: Number(extracted.total_amount ?? 0),
         hsn_code: extracted.hsn_code || "",
-        confidence: Number(scan.confidence_score ?? extracted.confidence ?? 75),
-        action: scan.action ?? extracted.action ?? "review",
+        confidence: Number(scan.confidence_score ?? extracted.confidence ?? 0),
+        action: scan.action ?? extracted.action ?? "manual",
       });
 
       setStep("review");
     } catch (err: unknown) {
-      setError(getScanFailureMessage(err));
-      setNotice(null);
-      setEdited(null);
-      setStep("upload");
+      if (isHardFailure(err)) {
+        // Real failure — show error, stay on upload
+        setError(getScanFailureMessage(err));
+        setNotice(null);
+        setEdited(null);
+        setStep("upload");
+      } else {
+        // Low confidence, missing GSTIN, JSON parse issues etc.
+        // Don't block the user — show review form with empty fields
+        setError(null);
+        setNotice("Scan ne kuch fields extract nahi kiye. Manually fill karke save karo.");
+        setEdited({ ...EMPTY_INVOICE });
+        setStep("review");
+      }
     }
   }
 
@@ -235,18 +266,18 @@ export default function Scan({ navigate }: Props) {
     const business = getBusinessContext();
 
     if (!token || !business?.id) {
-      setError("Business session missing. Please sign in again.");
+      setError("Business session missing. Dobara sign in karo.");
       setStep("upload");
       return;
     }
 
     if (!edited.vendor_name.trim() || !edited.invoice_number.trim() || !edited.invoice_date) {
-      setError("Complete vendor name, invoice number, and invoice date before saving.");
+      setError("Vendor name, invoice number, aur invoice date fill karo.");
       return;
     }
 
     if (Number(edited.taxable_amount || 0) <= 0) {
-      setError("Enter a taxable amount before saving the invoice.");
+      setError("Taxable amount enter karo.");
       return;
     }
 
@@ -288,14 +319,12 @@ export default function Scan({ navigate }: Props) {
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(payload, "Invoice could not be saved.")
-        );
+        throw new Error(getApiErrorMessage(payload, "Invoice save nahi hua."));
       }
 
       setStep("done");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Invoice save failed.");
+      setError(err instanceof Error ? err.message : "Invoice save fail hua.");
       setStep("review");
     }
   }
@@ -336,7 +365,6 @@ export default function Scan({ navigate }: Props) {
                 Upload a GST bill image and extract vendor, invoice, and tax
                 values into a structured purchase entry for {businessName}.
               </p>
-
               <div className="hero-tags">
                 <span className="hero-tag">OCR + AI extraction</span>
                 <span className="hero-tag">Purchase invoice ready</span>
@@ -359,7 +387,6 @@ export default function Scan({ navigate }: Props) {
                         totals visible.
                       </span>
                     </div>
-
                     <div className="upload-actions">
                       <button
                         className="btn btn-primary"
@@ -383,7 +410,6 @@ export default function Scan({ navigate }: Props) {
                         Change
                       </button>
                     </div>
-
                     <div className="preview-meta">
                       <div>
                         <span>Selected file</span>
@@ -435,7 +461,6 @@ export default function Scan({ navigate }: Props) {
                     </div>
                   </div>
                 </div>
-
                 <div className="info-card">
                   <div className="panel-kicker">Best results</div>
                   <p>
@@ -457,14 +482,12 @@ export default function Scan({ navigate }: Props) {
                 We are reading vendor, invoice, and tax values from the uploaded
                 document. This usually takes a few seconds.
               </p>
-
               <div className="scan-steps">
                 <div>Reading invoice layout</div>
                 <div>Identifying vendor and totals</div>
                 <div>Preparing purchase entry</div>
               </div>
             </div>
-
             <div className="scan-preview">
               <div className="scan-window">
                 {preview && <img src={preview} className="scan-thumb" alt="" />}
@@ -485,7 +508,6 @@ export default function Scan({ navigate }: Props) {
                   and save the purchase invoice into your register.
                 </p>
               </div>
-
               <div className={`confidence-card ${confidenceMeta.tone}`}>
                 <span>Confidence</span>
                 <strong>{edited.confidence}%</strong>
@@ -496,7 +518,6 @@ export default function Scan({ navigate }: Props) {
             <div className="review-grid">
               <section className="surface form-panel">
                 <div className="panel-kicker">Extracted fields</div>
-
                 <div className="field-grid">
                   <label className="field field-full">
                     <span>Vendor name</span>
@@ -514,6 +535,7 @@ export default function Scan({ navigate }: Props) {
                     <input
                       className="input"
                       value={edited.vendor_gstin}
+                      placeholder="Leave empty if not applicable"
                       onChange={(event) =>
                         updateField(
                           "vendor_gstin",
@@ -551,6 +573,7 @@ export default function Scan({ navigate }: Props) {
                     <input
                       className="input"
                       value={edited.hsn_code}
+                      placeholder="Optional"
                       onChange={(event) =>
                         updateField("hsn_code", event.target.value)
                       }
@@ -722,7 +745,6 @@ export default function Scan({ navigate }: Props) {
               The purchase invoice is now available in your register and will be
               included in downstream GST calculations.
             </p>
-
             <div className="review-actions">
               <button className="btn btn-primary" onClick={reset}>
                 Scan another invoice

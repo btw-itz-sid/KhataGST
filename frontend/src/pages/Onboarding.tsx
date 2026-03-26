@@ -236,8 +236,35 @@ export default function Onboarding({
         {/* ── Right form panel ─────────────────────── */}
         <section className="ob-panel">
           <div className="ob-card anim-scale">
-            <div className="ob-mobile-brand">
-              Khata<span>GST</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <div className="ob-mobile-brand" style={{ marginBottom: 0 }}>
+                Khata<span>GST</span>
+              </div>
+              <button
+                type="button"
+                onClick={onRequireLogin}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--ob-soft)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: "6px 10px",
+                  borderRadius: "8px",
+                  transition: "color 0.2s, background 0.2s",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.color = "var(--ob-danger)";
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.color = "var(--ob-soft)";
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                Sign out
+              </button>
             </div>
 
             {/* ── Progress bar ─────────────────────── */}

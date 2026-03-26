@@ -18,7 +18,7 @@
 | Backend | Node.js + Fastify + TypeScript | Working |
 | Database | Neon PostgreSQL | Connected |
 | Auth | Phone OTP + JWT | Working |
-| OTP Provider | Local development OTP flow | Working |
+| OTP Provider | Fast2SMS (Prod) / Local (Dev) | Working |
 | AI Scan | Google Gemini API | Working with structured output + malformed JSON recovery |
 | Frontend | React + Vite | Working |
 | Export | Excel + CSV | Working |
@@ -109,6 +109,12 @@
 - Login and Dashboard redesigned with premium UI (glassmorphism, animations)
 - Setup wizard (Onboarding) redesigned with premium split-panel UI
 - UUID type error in new business creation fixed (`auth.ts` fallback logic)
+- Unauthorized setup access bug fixed (added auth guards to routing logic)
+
+### Day 11 - Production Auth Integration
+- Integrated Fast2SMS as real OTP delivery provider for production
+- Created `otpService.ts` for environment-aware OTP dispatch setup
+- Hardened API to never leak `dev_otp` in responses
 
 ---
 
@@ -209,8 +215,8 @@
 4. Frontend default dev port is `5173`.
 5. Backend default port is `3000`.
 6. Vite config now lives at `frontend/vite.config.mjs`.
-7. OTP is not shown in UI anymore.
-8. OTP currently uses the local development flow.
+7. OTP is sent via SMS (prod) or logged locally (dev) and never leaks in UI/API.
+8. Integrated Fast2SMS as the production OTP provider.
 9. In development, OTP is written to `dev-otp.log`.
 10. Gemini scan uses structured JSON output, but parser repair is still kept as a safety layer.
 
@@ -247,7 +253,6 @@ Get-Content .\dev-otp.log -Wait
 ## Remaining Roadmap
 
 ### Backend
-- Integrate a real OTP delivery provider for production
 - Add Redis or Upstash for production-safe OTP/rate limit state
 - Add storage layer for uploaded bill images if persistent scan history is needed
 - Add stronger scan validation rules for invoice-specific fields
@@ -278,11 +283,12 @@ Day 7    Core frontend screens complete
 Day 8    App flow hardening complete
 Day 9    Security + AI scan reliability pass complete
 Day 10   Premium UI redesign (Login, Dashboard, Onboarding) + Bug fixes
-Next     real OTP provider, export/profile/pricing, deployment
+Day 11   Production Fast2SMS OTP integration
+Next     Export/profile/pricing, deployment
 ```
 
 ---
 
-*Last updated: March 25, 2026*
-*Backend: 95% | Frontend: 75% | Deployment: Pending*
-*Next focus: real OTP provider, remaining frontend screens, deploy*
+*Last updated: March 26, 2026*
+*Backend: 98% | Frontend: 75% | Deployment: Pending*
+*Next focus: export/profile/pricing, remaining frontend screens, deploy*

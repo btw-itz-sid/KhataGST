@@ -3,7 +3,6 @@ import { query } from "../lib/db.js";
 import {
   createManualReviewFallback,
   scanBillWithAI,
-  shouldUseManualReviewFallback,
 } from "../services/billScanService.js";
 import * as fs from "fs";
 import * as os from "os";
@@ -48,13 +47,16 @@ export async function scanRoutes(app: FastifyInstance) {
     const ext = path.extname(filename) || ".jpg";
     const tempPath = path.join(os.tmpdir(), `scan_${Date.now()}${ext}`);
     fs.writeFileSync(tempPath, fileBuffer);
+
     const scanRecord = await query(
       `INSERT INTO bill_scans (business_id, uploaded_by, file_url, status) VALUES ($1, $2, $3, 'processing') RETURNING id`,
       [business_id, userId, tempPath]
     );
     const scanId = scanRecord.rows[0].id;
+
     try {
       const result = await scanBillWithAI(tempPath);
+
       await query(
         `UPDATE bill_scans
          SET status = 'done',
@@ -70,7 +72,9 @@ export async function scanRoutes(app: FastifyInstance) {
           scanId,
         ]
       );
-      fs.unlinkSync(tempPath);
+
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
       return reply.send({
         success: true,
         scan: {
@@ -82,13 +86,20 @@ export async function scanRoutes(app: FastifyInstance) {
           mock_mode: Boolean(result.fallback_mode),
           fallback_mode: result.fallback_mode ?? null,
           fallback_reason: result.fallback_reason ?? null,
-        }
+        },
       });
+
     } catch (err: any) {
-      if (shouldUseManualReviewFallback(err)) {
-        const fallback = createManualReviewFallback(
-          "AI scan is unavailable right now. Complete the invoice details manually."
-        );
+      // Log exact error for debugging
+      console.error("Scan failed — Gemini error:", err?.message ?? err);
+
+      // Always return fallback instead of 500
+      // User can fill fields manually on the review form
+      const fallback = createManualReviewFallback(
+        err?.message ?? "AI scan failed. Fill invoice details manually."
+      );
+
+      try {
         await query(
           `UPDATE bill_scans
            SET status = 'done',
@@ -100,43 +111,56 @@ export async function scanRoutes(app: FastifyInstance) {
           [
             JSON.stringify(fallback.extracted_data),
             fallback.confidence_score,
-            err.message,
+            err?.message ?? "Unknown error",
             scanId,
           ]
         );
-        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-        return reply.send({
-          success: true,
-          scan: {
-            id: scanId,
-            status: "done",
-            confidence_score: fallback.confidence_score,
-            action: fallback.action,
-            extracted_data: fallback.extracted_data,
-            mock_mode: true,
-            fallback_mode: fallback.fallback_mode,
-            fallback_reason: fallback.fallback_reason,
-          },
-        });
+      } catch (dbErr: any) {
+        console.error("DB update failed after scan error:", dbErr?.message);
       }
 
-      await query(`UPDATE bill_scans SET status = 'failed', error_message = $1 WHERE id = $2`, [err.message, scanId]);
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-      return reply.status(500).send({ success: false, error: { code: "SCAN_FAILED", message: err.message } });
+
+      return reply.send({
+        success: true,
+        scan: {
+          id: scanId,
+          status: "done",
+          confidence_score: 0,
+          action: "manual",
+          extracted_data: fallback.extracted_data,
+          mock_mode: true,
+          fallback_mode: "manual_review",
+          fallback_reason: "AI scan incomplete. Fill fields manually.",
+        },
+      });
     }
   });
 
   app.get("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const result = await query(`SELECT * FROM bill_scans WHERE id = $1`, [id]);
-    if (result.rows.length === 0) return reply.status(404).send({ success: false, error: { code: "NOT_FOUND", message: "Scan nahi mila" } });
+    if (result.rows.length === 0) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Scan nahi mila" },
+      });
+    }
     return reply.send({ success: true, data: result.rows[0] });
   });
 
   app.get("/", { preHandler: [app.authenticate] }, async (request, reply) => {
     const { business_id } = request.query as any;
-    if (!business_id) return reply.status(400).send({ success: false, error: { code: "INVALID_INPUT", message: "business_id do" } });
-    const result = await query(`SELECT id, file_url, status, confidence, created_at FROM bill_scans WHERE business_id = $1 ORDER BY created_at DESC`, [business_id]);
+    if (!business_id) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "INVALID_INPUT", message: "business_id do" },
+      });
+    }
+    const result = await query(
+      `SELECT id, file_url, status, confidence, created_at FROM bill_scans WHERE business_id = $1 ORDER BY created_at DESC`,
+      [business_id]
+    );
     return reply.send({ success: true, data: result.rows });
   });
 }

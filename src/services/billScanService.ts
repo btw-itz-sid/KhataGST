@@ -350,9 +350,7 @@ Important rules:
         ],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 1000,
-          responseMimeType: "application/json",
-          responseSchema: BILL_EXTRACTION_SCHEMA,
+          maxOutputTokens: 8192,
         },
       }),
     });
@@ -370,6 +368,7 @@ Important rules:
 
     const data = await response.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    console.log("Gemini raw response:", rawText.substring(0, 500));
 
     if (!rawText) {
       throw new Error(`Gemini response empty aaya for model ${model}.`);
@@ -387,6 +386,6 @@ Important rules:
 
   throw new Error(
     lastError ||
-      "Gemini ke liye koi supported model nahi mila. GEMINI_MODEL ya API access check karo."
+    "Gemini ke liye koi supported model nahi mila. GEMINI_MODEL ya API access check karo."
   );
 }

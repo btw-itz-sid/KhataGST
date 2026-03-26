@@ -1,10 +1,11 @@
 import { FastifyInstance } from "fastify";
-import * as fs from "fs";
 import * as path from "path";
+import * as fs from "fs";
 import { z } from "zod";
 import { query } from "../lib/db.js";
 
 const otpStore = new Map<string, { otp: string; expires: number }>();
+
 const DEV_OTP_LOG_PATH = path.resolve(
   process.cwd(),
   process.env.DEV_OTP_LOG_PATH || "dev-otp.log"
@@ -14,23 +15,54 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-function shouldExposeDevOtp(): boolean {
-  return (
-    process.env.NODE_ENV === "development" &&
-    process.env.EXPOSE_DEV_OTP === "true"
-  );
-}
-
 function isValidPhone(phone: string): boolean {
   return /^[6-9]\d{9}$/.test(phone);
 }
 
-function logDevOtp(phone: string, otp: string): void {
-  if (process.env.NODE_ENV === "production") return;
+async function sendOTP(phone: string, otp: string): Promise<void> {
+  // Development — skip real SMS, just log to file
+  if (process.env.NODE_ENV !== "production") {
+    const line = `[${new Date().toISOString()}] OTP for ${phone}: ${otp}\n`;
+    console.log(line.trim());
+    fs.appendFileSync(DEV_OTP_LOG_PATH, line, "utf8");
+    return;
+  }
 
-  const line = `[${new Date().toISOString()}] OTP for ${phone}: ${otp}\n`;
-  console.log(line.trim());
-  fs.appendFileSync(DEV_OTP_LOG_PATH, line, "utf8");
+  // Production — send via Fast2SMS
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+    throw new Error("FAST2SMS_API_KEY not set in environment");
+  }
+
+  const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+    method: "POST",
+    headers: {
+      authorization: apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      route: "otp",
+      variables_values: otp,
+      numbers: phone,
+      flash: 0,
+    }),
+  });
+
+  const data = (await response.json()) as {
+    return: boolean;
+    status_code: number;
+    message: string[];
+    request_id?: string;
+  };
+
+  if (!response.ok || !data.return) {
+    console.error("Fast2SMS error:", data);
+    throw new Error(
+      `Fast2SMS OTP send failed: ${data.message?.join(", ") ?? "Unknown error"}`
+    );
+  }
+
+  console.log(`OTP sent to ${phone} via Fast2SMS — request_id: ${data.request_id}`);
 }
 
 export async function authRoutes(app: FastifyInstance) {
@@ -61,19 +93,26 @@ export async function authRoutes(app: FastifyInstance) {
 
     const otp = generateOTP();
     const expires = Date.now() + 10 * 60 * 1000;
-
     otpStore.set(phone, { otp, expires });
-    logDevOtp(phone, otp);
 
-    const devOtp = shouldExposeDevOtp() ? otp : undefined;
+    try {
+      await sendOTP(phone, otp);
+    } catch (err) {
+      console.error("OTP send error:", err);
+      return reply.status(500).send({
+        success: false,
+        error: {
+          code: "OTP_SEND_FAILED",
+          message: "OTP bhejne mein dikkat aayi, thodi der baad try karo",
+        },
+      });
+    }
 
     return reply.send({
       success: true,
       message: `OTP bheja gaya ${phone} pe`,
-      dev_otp: devOtp,
       data: {
         message: `OTP bheja gaya ${phone} pe`,
-        dev_otp: devOtp,
       },
     });
   });
