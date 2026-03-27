@@ -159,6 +159,8 @@ export default function Scan({ navigate }: Props) {
   const [edited, setEdited] = useState<ScannedInvoiceData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [debugData, setDebugData] = useState<any>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
@@ -201,6 +203,8 @@ export default function Scan({ navigate }: Props) {
     setStep("scanning");
     setError(null);
     setNotice(null);
+    setDebugData(null);
+    setShowDebug(false);
 
     try {
       const formData = new FormData();
@@ -240,6 +244,7 @@ export default function Scan({ navigate }: Props) {
         action: scan.action ?? extracted.action ?? "manual",
       });
 
+      setDebugData(scan);
       setStep("review");
     } catch (err: unknown) {
       if (isHardFailure(err)) {
@@ -254,6 +259,7 @@ export default function Scan({ navigate }: Props) {
         setError(null);
         setNotice("Scan ne kuch fields extract nahi kiye. Manually fill karke save karo.");
         setEdited({ ...EMPTY_INVOICE });
+        setDebugData({ error: err instanceof Error ? err.message : String(err) });
         setStep("review");
       }
     }
@@ -679,6 +685,15 @@ export default function Scan({ navigate }: Props) {
                 </div>
               </section>
 
+              {showDebug && debugData && (
+                <section className="surface debug-panel" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                  <div className="panel-kicker">Raw AI Output (Debug)</div>
+                  <pre className="debug-pre">
+                    {JSON.stringify(debugData, null, 2)}
+                  </pre>
+                </section>
+              )}
+
               <aside className="surface summary-panel">
                 <div className="panel-kicker">Tax summary</div>
 
@@ -714,6 +729,9 @@ export default function Scan({ navigate }: Props) {
                 </div>
 
                 <div className="review-actions">
+                  <button className="btn btn-soft" onClick={() => setShowDebug(!showDebug)}>
+                    {showDebug ? "Hide Debug" : "Show Debug"}
+                  </button>
                   <button className="btn btn-soft" onClick={reset}>
                     Discard
                   </button>
@@ -781,6 +799,7 @@ button,input{font-family:inherit}
 .scan-stage h2{margin:0;font-size:30px;line-height:1.02;font-weight:800;letter-spacing:-.04em}.scan-stage p{margin:14px 0 0;font-size:14px;line-height:1.75;color:#5f6c80}.scan-kicker{margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a94a6}.scan-steps{display:grid;gap:10px;margin-top:20px}.scan-steps div{padding:12px 14px;border-radius:16px;background:#f8fafc;border:1px solid #dbe3ef}.scan-preview{display:flex;align-items:center;justify-content:center}.scan-window{position:relative;overflow:hidden;width:min(100%,320px);aspect-ratio:4/5;border-radius:24px;border:1px solid #dbe3ef;background:linear-gradient(180deg,#eef2f7 0%,#f8fafc 100%)}.scan-thumb{width:100%;height:100%;object-fit:cover;opacity:.72}.scan-line{position:absolute;left:0;right:0;height:3px;background:#ff6b00;box-shadow:0 0 10px rgba(255,107,0,.6);animation:scan 1.8s ease-in-out infinite}
 .review-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.confidence-card{min-width:200px;padding:18px;border-radius:20px;border:1px solid #dbe3ef;background:#fff}.confidence-card span{display:block;margin-bottom:8px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a94a6}.confidence-card strong{display:block;font:700 30px 'IBM Plex Mono',monospace}.confidence-card p{margin:8px 0 0;font-size:13px;line-height:1.6}.confidence-card.good strong,.confidence-card.good p{color:#059669}.confidence-card.warn strong,.confidence-card.warn p{color:#d97706}.confidence-card.bad strong,.confidence-card.bad p{color:#dc2626}
 .field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}.field{display:flex;flex-direction:column;gap:8px}.field-full{grid-column:1/-1}.input{width:100%;padding:12px 14px;border-radius:14px;border:1.5px solid #dbe3ef;background:#fff;color:#0f172a;font-size:14px;outline:none}.input:focus{border-color:#ff6b00;box-shadow:0 0 0 4px rgba(255,107,0,.08)}
+.debug-pre{margin:14px 0 0;padding:16px;border-radius:14px;background:#1e293b;color:#e2e8f0;font:600 12px 'IBM Plex Mono',monospace;white-space:pre-wrap;word-break:break-all;overflow-x:auto}
 .amount-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #e8eef5}.amount-row strong{font:700 14px 'IBM Plex Mono',monospace;color:#0f172a}.total-row strong{color:#ff6b00}.review-actions{margin-top:18px}
 .status-panel{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:28px}.spinner{width:40px;height:40px;border-radius:999px;border:3px solid #dbe3ef;border-top-color:#ff6b00;animation:spin .7s linear infinite}.success-mark{width:54px;height:54px;display:grid;place-items:center;border-radius:18px;background:#ecfdf5;color:#059669;font:800 14px 'IBM Plex Mono',monospace}
 @keyframes spin{to{transform:rotate(360deg)}}@keyframes scan{0%{top:0}50%{top:calc(100% - 3px)}100%{top:0}}

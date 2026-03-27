@@ -250,6 +250,32 @@ Get-Content .\dev-otp.log -Wait
 
 ---
 
+## AI Scan Hardening & Frontend Completion
+
+## 1. Scan System Updates
+- [x] Create `scripts/test-scan.ts` for rapid local AI extraction testing.
+- [x] Fix Gemini API payload structure bug (`inlineData` instead of `inline_data`).
+- [x] Add "Debug Data" toggle to `Scan.tsx` review screen to display raw JSON output.
+
+## 2. Finish Frontend App Pages
+- [x] Verify `Export.tsx` (Completed).
+- [x] Implement `Profile.tsx` (Business details & settings).
+- [x] Implement `Pricing.tsx` (Subscription plans).
+- [x] Update `App.tsx` routing and Dashboard bottom nav for new pages.
+
+## 3. Verification & Deployment
+- [x] Verify complete frontend build using `npm run build`.
+- [x] Test AI pipeline locally (via testing script).
+- [ ] Deploy to Railway (Backend) *[Pending User Decision]*
+- [ ] Deploy to Vercel (Frontend) *[Pending User Decision]* deploy
+- Production env setup
+- End-to-end live smoke test on deployed URLs
+
+### Business
+- Beta user onboarding
+
+---
+
 ## Remaining Roadmap
 
 ### Backend

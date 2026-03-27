@@ -4,6 +4,8 @@ import Export from "./pages/Export";
 import Invoices from "./pages/Invoices";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
+import Pricing from "./pages/Pricing";
+import Profile from "./pages/Profile";
 import Scan from "./pages/Scan";
 import {
   clearBusinessContext,
@@ -22,7 +24,9 @@ type Route =
   | "dashboard"
   | "scan"
   | "invoices"
-  | "export";
+  | "export"
+  | "profile"
+  | "pricing";
 
 const BASE_URL = "/api/v1";
 
@@ -67,7 +71,7 @@ export function BottomNav({
     { icon: "docs", label: "Invoices", route: "invoices" },
     { icon: "scan", label: "Scan", route: "scan" },
     { icon: "export", label: "Export", route: "export" },
-    { icon: "more", label: "Settings", route: "dashboard" },
+    { icon: "more", label: "Settings", route: "profile" },
   ];
 
   function NavIcon({
@@ -345,6 +349,12 @@ export default function App() {
       {route === "invoices" && <Invoices navigate={navigate} />}
 
       {route === "export" && <Export navigate={navigate} />}
+
+      {route === "profile" && (
+        <Profile navigate={navigate} onLogout={handleLogout} />
+      )}
+
+      {route === "pricing" && <Pricing navigate={navigate} />}
 
       {showNav && <BottomNav active={route} navigate={navigate} />}
     </div>
