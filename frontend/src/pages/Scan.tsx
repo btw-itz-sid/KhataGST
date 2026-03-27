@@ -783,11 +783,20 @@ export default function Scan({ navigate }: Props) {
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@600;700&display=swap');
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+.scan-shell > * { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.scan-shell > *:nth-child(2) { animation-delay: 0.05s; }
+.scan-shell > *:nth-child(3) { animation-delay: 0.1s; }
+
 *{box-sizing:border-box}
 body{margin:0;background:radial-gradient(circle at top left,rgba(255,107,0,.1),transparent 22%),linear-gradient(180deg,#f8fafc 0%,#eef3f9 100%);font-family:'Manrope',sans-serif;color:#0f172a}
 button,input{font-family:inherit}
-.scan-topbar{position:sticky;top:0;z-index:120;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid rgba(219,227,239,.9);background:rgba(248,250,252,.88);backdrop-filter:blur(14px)}
-.scan-brand{justify-self:center;font:700 18px 'IBM Plex Mono',monospace}.scan-brand span{color:#ff6b00}.nav-btn,.btn{border:none;cursor:pointer;transition:transform .15s ease}.nav-btn:hover,.btn:hover{transform:translateY(-1px)}.nav-btn{padding:10px 14px;border-radius:14px;background:rgba(15,23,42,.06);color:#0f172a;font-size:13px;font-weight:800}.nav-meta{justify-self:end;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a94a6}
+
+.scan-topbar{position:sticky;top:0;z-index:120;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.05);background:rgba(15,23,42,.88);backdrop-filter:blur(16px)}
+.scan-brand{justify-self:center;font:700 17px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-0.02em}.scan-brand span{color:#ff6b00}
+.nav-btn,.btn{border:none;cursor:pointer;transition:all .2s ease}.nav-btn:hover,.btn:hover{transform:translateY(-1px)}.nav-btn{padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.05);color:#fff;font-size:12px;font-weight:600}.nav-meta{justify-self:end;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a94a6}
+
 .scan-shell{max-width:1140px;margin:0 auto;padding:26px 16px 94px;display:flex;flex-direction:column;gap:18px}.surface{padding:22px;border-radius:26px;border:1px solid rgba(219,227,239,.94);background:rgba(255,255,255,.92);box-shadow:0 18px 36px rgba(15,23,42,.05)}
 .kicker,.panel-kicker,.field span{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a94a6}.scan-hero{padding:28px 30px;border-radius:30px;background:radial-gradient(circle at top right,rgba(255,107,0,.24),transparent 28%),linear-gradient(135deg,#0f172a 0%,#172554 52%,#1e293b 100%);color:#fff;box-shadow:0 28px 56px rgba(15,23,42,.16)}.scan-hero .kicker{margin-bottom:10px;color:rgba(255,255,255,.58)}.scan-hero h1,.review-hero h2,.status-panel h2{margin:0;font-size:clamp(34px,5vw,48px);line-height:.96;font-weight:800;letter-spacing:-.04em}.review-hero h2,.status-panel h2{font-size:24px;line-height:1.08;color:#0f172a}.scan-hero p,.review-hero p,.status-panel p{max-width:60ch;margin:16px 0 0;font-size:15px;line-height:1.8;color:rgba(255,255,255,.78)}.review-hero p,.status-panel p{color:#5f6c80}
 .hero-tags,.upload-actions,.review-actions,.hero-meta{display:flex;flex-wrap:wrap;gap:10px}.hero-tags{margin-top:20px}.hero-tag{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:700;color:rgba(255,255,255,.84)}

@@ -267,10 +267,10 @@ const STYLES = `
 body{margin:0;background:radial-gradient(circle at top left,rgba(255,107,0,.06),transparent 22%),linear-gradient(180deg,#f8fafc 0%,#eef3f9 100%);font-family:'Manrope',sans-serif;color:#0f172a}
 button{font-family:inherit}
 
-.pr-topbar{position:sticky;top:0;z-index:120;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid rgba(219,227,239,.9);background:rgba(248,250,252,.88);backdrop-filter:blur(14px)}
-.pr-brand{justify-self:center;font:700 18px 'IBM Plex Mono',monospace}.pr-brand span{color:#ff6b00}
-.pr-back{padding:10px 14px;border-radius:14px;background:rgba(15,23,42,.06);color:#0f172a;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:transform .15s ease}
-.pr-back:hover{transform:translateY(-1px)}
+.pr-topbar{position:sticky;top:0;z-index:120;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.05);background:rgba(15,23,42,.88);backdrop-filter:blur(16px)}
+.pr-brand{justify-self:center;font:700 17px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-.02em}.pr-brand span{color:#ff6b00}
+.pr-back{padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.05);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s ease}
+.pr-back:hover{transform:translateY(-1px);background:rgba(255,255,255,.15)}
 .pr-meta{justify-self:end;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a94a6}
 
 .pr-shell{max-width:1100px;margin:0 auto;padding:26px 16px 94px;display:flex;flex-direction:column;gap:24px}
@@ -337,5 +337,19 @@ button{font-family:inherit}
 
 /* Responsive */
 @media (max-width:980px){.pr-plans-grid{grid-template-columns:1fr}}
-@media (max-width:640px){.pr-shell{padding:18px 12px 94px}.pr-hero,.pr-plan,.pr-cta-banner{padding:20px;border-radius:20px}.pr-cta-banner{flex-direction:column;text-align:center}.pr-topbar{grid-template-columns:1fr auto}.pr-brand{justify-self:start}.pr-meta{display:none}}
+@media (max-width:640px){
+  .pr-shell{padding:18px 12px 94px}
+  .pr-hero,.pr-plan,.pr-cta-banner{padding:20px;border-radius:20px}
+  .pr-hero h1{font-size:24px}
+  .pr-hero p{font-size:14px}
+  .pr-price{font-size:28px}
+  .pr-plan-name{font-size:18px}
+  .pr-cta-banner{flex-direction:column;text-align:center}
+  .pr-banner-btn{width:100%}
+  .pr-topbar{grid-template-columns:1fr auto}
+  .pr-brand{justify-self:start}
+  .pr-meta{display:none}
+  .pr-faq{padding:16px}
+  .pr-faq-q strong{font-size:13px}
+}
 `;

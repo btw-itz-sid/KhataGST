@@ -267,12 +267,15 @@ Get-Content .\dev-otp.log -Wait
 - [x] Verify complete frontend build using `npm run build`.
 - [x] Test AI pipeline locally (via testing script).
 - [ ] Deploy to Railway (Backend) *[Pending User Decision]*
-- [ ] Deploy to Vercel (Frontend) *[Pending User Decision]* deploy
-- Production env setup
-- End-to-end live smoke test on deployed URLs
+- [ ] Deploy to Vercel (Frontend) *[Pending User Decision]*
 
-### Business
-- Beta user onboarding
+---
+
+## 4. Final Polish & UI Refinement
+- [x] **Profile.tsx**: Add more settings (Notifications, Display, Members).
+- [x] **Invoices.tsx**: Refine list UI, add animations, improve detail view.
+- [x] **Scan.tsx**: Enhance load states, review grid, and dropzone aesthetics.
+- [x] **Export.tsx**: Animate format cards, improve headers and selections.
 
 ---
 

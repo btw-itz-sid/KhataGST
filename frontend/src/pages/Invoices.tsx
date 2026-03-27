@@ -641,16 +641,50 @@ export default function Invoices({ navigate }: Props) {
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Space+Mono:wght@700&display=swap');
-  body { background: #f5f3ef; font-family: 'Sora', sans-serif; color: #1a1611; }
-  .topbar { background: #1a1611; height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; position: sticky; top: 0; z-index: 100; }
-  .logo { font-family: 'Space Mono', monospace; font-size: 15px; color: #fff; font-weight: 700; }
-  .back-btn { background: rgba(255,255,255,.12); border: none; color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-family: 'Sora', sans-serif; cursor: pointer; }
-  .new-btn { background: #ff6b00; border: none; color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-family: 'Sora', sans-serif; font-weight: 700; cursor: pointer; }
-  .content { max-width: 640px; margin: 0 auto; padding: 16px 14px 80px; }
-  .search-wrap { display: flex; align-items: center; gap: 10px; background: #fff; border: 1.5px solid #e5e1d8; border-radius: 10px; padding: 0 14px; margin-bottom: 12px; }
-  .search-input { flex: 1; border: none; background: transparent; padding: 11px 0; font-family: 'Sora', sans-serif; font-size: 13px; color: #1a1611; outline: none; }
-  .search-input::placeholder { color: #a39b8e; }
-  .card { background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #e5e1d8; }
-  .inv-card { background: #fff; border-radius: 12px; border: 1px solid #e5e1d8; display: flex; align-items: center; gap: 12px; padding: 13px 14px; cursor: pointer; transition: box-shadow .15s, transform .15s; }
-  .inv-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); transform: translateY(-1px); }
+  
+  /* Animations */
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+  .content, .card { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .inv-card { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; animation-fill-mode: both; }
+  .inv-card:nth-child(2) { animation-delay: 0.05s; }
+  .inv-card:nth-child(3) { animation-delay: 0.1s; }
+  .inv-card:nth-child(4) { animation-delay: 0.15s; }
+  .inv-card:nth-child(5) { animation-delay: 0.2s; }
+  .inv-card:nth-child(6) { animation-delay: 0.25s; }
+
+  body { background: #f8fafc; font-family: 'Sora', sans-serif; color: #0f172a; margin: 0; }
+  
+  /* Premium Header */
+  .topbar { background: rgba(15,23,42,.88); backdrop-filter: blur(16px); height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .logo { font-family: 'Space Mono', monospace; font-size: 16px; color: #fff; font-weight: 700; letter-spacing: -0.02em; }
+  .back-btn { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.05); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-family: 'Sora', sans-serif; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+  .back-btn:hover { background: rgba(255,255,255,.15); transform: translateY(-1px); }
+  .new-btn { background: linear-gradient(135deg, #ff7a1a, #ea580c); border: none; color: #fff; padding: 8px 16px; border-radius: 10px; font-size: 12px; font-family: 'Sora', sans-serif; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(234,88,12,.25); transition: all 0.2s ease; }
+  .new-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(234,88,12,.35); }
+  
+  .content { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
+  
+  /* Refined Controls */
+  .search-wrap { display: flex; align-items: center; gap: 12px; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 16px; margin-bottom: 16px; transition: border-color 0.2s; box-shadow: 0 4px 12px rgba(15,23,42,.02); }
+  .search-wrap:focus-within { border-color: #ff6b00; box-shadow: 0 0 0 3px rgba(255,107,0,.08); }
+  .search-input { flex: 1; border: none; background: transparent; padding: 14px 0; font-family: 'Sora', sans-serif; font-size: 14px; color: #0f172a; outline: none; font-weight: 600; }
+  .search-input::placeholder { color: #94a3b8; font-weight: 400; }
+  
+  /* Detail View Card */
+  .card { background: #fff; border-radius: 20px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 12px 32px rgba(15,23,42,.04); }
+  
+  /* Invoice List Item */
+  .inv-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 14px; padding: 16px; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 2px 8px rgba(15,23,42,.02); }
+  .inv-card:hover { border-color: #cbd5e1; box-shadow: 0 8px 24px rgba(15,23,42,.06); transform: translateY(-2px); }
+
+  @media (max-width: 640px) {
+    .content { padding: 16px 14px 84px; }
+    .topbar { padding: 0 12px; height: 52px; }
+    .card { padding: 16px; border-radius: 16px; }
+    .inv-card { padding: 12px 14px; gap: 10px; }
+    
+    /* Stack the filter tabs and select dropdown */
+    div[style*="marginBottom: 12"] { flex-direction: column; align-items: stretch !important; gap: 12px !important; }
+    select { width: 100%; }
+  }
 `;

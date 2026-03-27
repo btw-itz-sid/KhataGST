@@ -385,59 +385,29 @@ const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@700&display=swap');
 
   body {
-    background:
-      radial-gradient(circle at top, #fff7ed 0, #f7f4ee 38%, #f2eee7 100%);
+    margin: 0;
+    background: #f8fafc;
     font-family: 'Sora', sans-serif;
     color: #1a1611;
   }
 
-  .topbar {
-    background: #1a1611;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    position: sticky;
-    top: 0;
-    z-index: 120;
-  }
-
-  .logo {
-    font-family: 'Space Mono', monospace;
-    font-size: 17px;
-    color: #fff;
-    font-weight: 700;
-  }
-
-  .logo span {
-    color: #ff6b00;
-  }
-
-  .back-btn {
-    background: rgba(255, 255, 255, 0.12);
-    border: none;
-    color: #fff;
-    padding: 7px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-family: 'Sora', sans-serif;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .topbar-meta {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.52);
-  }
+  .topbar { background: rgba(15,23,42,.88); backdrop-filter: blur(16px); height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .logo { font-family: 'Space Mono', monospace; font-size: 16px; color: #fff; font-weight: 700; letter-spacing: -0.02em; }
+  .logo span { color: #ff6b00; }
+  
+  .back-btn { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.05); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-family: 'Sora', sans-serif; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+  .back-btn:hover { background: rgba(255,255,255,.15); transform: translateY(-1px); }
+  
+  .topbar-meta { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #8a94a6; }
 
   .content {
-    max-width: 980px;
+    max-width: 860px;
     margin: 0 auto;
-    padding: 24px 16px 88px;
+    padding: 32px 18px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .export-page {

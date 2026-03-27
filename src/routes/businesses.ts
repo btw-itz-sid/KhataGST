@@ -117,4 +117,38 @@ export async function businessRoutes(fastify: FastifyInstance) {
     }
     reply.send({ success: true, business: result.rows[0] });
   });
+
+  // PUT /api/v1/businesses/:id
+  fastify.put("/:id", async (request, reply) => {
+    const userId = (request.user as any).userId;
+    const { id } = request.params as any;
+    const {
+      legal_name,
+      trade_name,
+      address,
+      state_code,
+    } = request.body as any;
+
+    try {
+      const result = await db.query(
+        `UPDATE businesses
+         SET legal_name = COALESCE($1, legal_name),
+             trade_name = COALESCE($2, trade_name),
+             address = COALESCE($3, address),
+             state_code = COALESCE($4, state_code),
+             updated_at = NOW()
+         WHERE id = $5 AND owner_id = $6
+         RETURNING *`,
+        [legal_name, trade_name, address, state_code, id, userId]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.status(404).send({ error: "Business nahi mila ya unauthorized" });
+      }
+
+      reply.send({ success: true, business: result.rows[0], message: "Business data update ho gaya" });
+    } catch (err: any) {
+      return reply.status(500).send({ error: "Failed to update business", details: err.message });
+    }
+  });
 }

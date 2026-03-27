@@ -31,7 +31,6 @@ export async function exportGSTR1Excel(
      FROM invoices i
      LEFT JOIN parties p ON i.party_id = p.id
      WHERE i.business_id = $1
-       AND i.invoice_type = 'sale'
        AND i.invoice_date >= $2
        AND i.invoice_date <= $3
        AND i.is_cancelled = false
