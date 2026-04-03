@@ -1,29 +1,42 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard.tsx — KhataGST ka main screen
+// Yahan sab kuch dikhta hai: sales, purchases, ITC, deadlines, aur invoices
+// Sab data real API se aata hai — koi bhi mock data nahi
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useEffect, useState } from "react";
 import { getBusinessContext, getToken } from "../lib/session";
 
-type Route = "login" | "dashboard" | "scan" | "invoices" | "export";
+// Route type — app ke andar navigate karne ke liye
+type Route = "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing";
+
+// GST matching status ke 3 types
 type GstStatus = "matched" | "pending" | "unmatched";
 
+// Dashboard mein dikhne waala data ka structure
 interface DashboardData {
-  totalSales: number;
-  totalPurchases: number;
-  itcAvailable: number;
-  taxPayable: number;
-  gstr1DueDate: string;
-  gstr3bDueDate: string;
-  recentInvoices: RecentInvoice[];
+  totalSales: number;       // is mahine ki total sales (paise mein)
+  totalPurchases: number;   // is mahine ki total purchases (paise mein)
+  itcAvailable: number;     // Input Tax Credit jo milega (paise mein)
+  taxPayable: number;       // jo GST bharna hai ITC ke baad (paise mein)
+  gstr1DueDate: string;     // GSTR-1 ki due date
+  gstr3bDueDate: string;    // GSTR-3B ki due date
+  recentInvoices: RecentInvoice[];  // last 5 invoices
+  totalInvoices: number;    // total kitne invoices hain
 }
 
+// Ek invoice ka data structure dashboard ke liye
 interface RecentInvoice {
   id: string;
   invoice_number: string;
   party_name: string;
-  total_amount: number;
+  total_amount: number;       // paise mein
   invoice_date: string;
   invoice_type: "sale" | "purchase";
   gst_status: GstStatus;
 }
 
+// Raw invoice jaise API se aata hai (type-safe nahi hota)
 interface RawInvoice {
   id?: string;
   invoice_number?: string;
@@ -39,55 +52,33 @@ interface RawInvoice {
   igst_amount?: number;
 }
 
+// Returns ka data (due date nikalne ke liye)
 interface ReturnSummary {
   return_type?: string;
   due_date?: string;
 }
 
+// Component ke props — parent se navigate aur logout milte hain
 interface Props {
   navigate: (route: Route) => void;
   onLogout: () => void;
 }
 
+// Backend ka base URL
 const BASE_URL = "/api/v1";
 
-const MOCK_DATA: DashboardData = {
-  totalSales: 1000000,
-  totalPurchases: 500000,
-  itcAvailable: 45000,
-  taxPayable: 90000,
-  gstr1DueDate: "2026-04-11",
-  gstr3bDueDate: "2026-04-20",
-  recentInvoices: [
-    {
-      id: "1",
-      invoice_number: "INV-001",
-      party_name: "Ramesh Traders",
-      total_amount: 1180000,
-      invoice_date: "2026-03-15",
-      invoice_type: "sale",
-      gst_status: "matched",
-    },
-    {
-      id: "2",
-      invoice_number: "PUR-001",
-      party_name: "Suresh Wholesale",
-      total_amount: 590000,
-      invoice_date: "2026-03-18",
-      invoice_type: "purchase",
-      gst_status: "pending",
-    },
-  ],
-};
-
+// ── Helper: Paise ko readable rupees mein convert karo ─────────────────────
 function formatRupees(paise: number): string {
   const rupees = paise / 100;
+  if (rupees >= 10000000) return `₹${(rupees / 10000000).toFixed(1)}Cr`;
   if (rupees >= 100000) return `₹${(rupees / 100000).toFixed(1)}L`;
   if (rupees >= 1000) return `₹${(rupees / 1000).toFixed(1)}K`;
-  return `₹${rupees.toLocaleString("en-IN")}`;
+  return `₹${rupees.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
+// ── Helper: Date ko readable format mein convert karo ──────────────────────
 function formatDate(dateStr: string): string {
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -95,17 +86,20 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// ── Helper: Aaj se kitne din bacha hai due date mein ──────────────────────
 function daysUntil(dateStr: string): number {
   const due = new Date(dateStr);
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// ── Helper: Raw API invoice ko normalized format mein convert karo ─────────
 function normalizeInvoice(invoice: RawInvoice): RecentInvoice {
   return {
     id: String(invoice.id ?? ""),
     invoice_number: String(invoice.invoice_number ?? "NA"),
-    party_name: String(invoice.party_name ?? invoice.party_gstin ?? "Unknown party"),
+    party_name: String(invoice.party_name ?? invoice.party_gstin ?? "Unknown Party"),
     total_amount: Number(invoice.total_amount ?? 0),
     invoice_date: String(invoice.invoice_date ?? new Date().toISOString()),
     invoice_type: invoice.invoice_type === "purchase" ? "purchase" : "sale",
@@ -116,230 +110,158 @@ function normalizeInvoice(invoice: RawInvoice): RecentInvoice {
   };
 }
 
-function getDeadlineTone(dateStr: string) {
+// ── Helper: Due date ka tone determine karo (safe/warning/overdue) ─────────
+function getDeadlineTone(dateStr: string): { tone: string; label: string; urgent: boolean } {
+  if (!dateStr) return { tone: "safe", label: "—", urgent: false };
   const days = daysUntil(dateStr);
-  if (days < 0) return { tone: "critical", label: `${Math.abs(days)}d overdue` };
-  if (days <= 5) return { tone: "warning", label: days === 0 ? "Due today" : `${days}d left` };
-  return { tone: "stable", label: `${days}d left` };
+  if (days < 0) return { tone: "overdue", label: `${Math.abs(days)}d overdue`, urgent: true };
+  if (days <= 5) return { tone: "warning", label: days === 0 ? "Due today!" : `${days}d left`, urgent: true };
+  return { tone: "safe", label: `${days}d left`, urgent: false };
 }
 
-function getStatusTone(status: GstStatus) {
-  if (status === "matched") return { label: "Matched", tone: "good" };
-  if (status === "unmatched") return { label: "Unmatched", tone: "bad" };
-  return { label: "Pending", tone: "warn" };
-}
-
-// GST Health Score calculator
+// ── GST Health Score calculate karo ────────────────────────────────────────
+// Returns: score (0-100), label, color
 function calcHealthScore(data: DashboardData): { score: number; label: string; color: string } {
   let score = 100;
   const days1 = daysUntil(data.gstr1DueDate);
   const days3b = daysUntil(data.gstr3bDueDate);
+
+  // GSTR-1 deadline ke according score ghata
   if (days1 < 0) score -= 30;
   else if (days1 <= 3) score -= 15;
   else if (days1 <= 7) score -= 5;
+
+  // GSTR-3B deadline ke according score ghata
   if (days3b < 0) score -= 30;
   else if (days3b <= 3) score -= 15;
   else if (days3b <= 7) score -= 5;
+
+  // Tax liability zyada hai toh score ghata
   if (data.taxPayable > data.itcAvailable * 2) score -= 10;
-  if (data.recentInvoices.some(i => i.gst_status === "unmatched")) score -= 10;
+
+  // Unmatched invoices hain toh score ghata
+  if (data.recentInvoices.some((i) => i.gst_status === "unmatched")) score -= 10;
+
+  // 0-100 ke beech rakho
   score = Math.max(0, Math.min(100, score));
-  if (score >= 80) return { score, label: "Healthy", color: "#34d399" };
-  if (score >= 60) return { score, label: "Needs Review", color: "#fbbf24" };
+
+  if (score >= 80) return { score, label: "Compliant", color: "#10b981" };
+  if (score >= 60) return { score, label: "Review Needed", color: "#f59e0b" };
   return { score, label: "At Risk", color: "#ef4444" };
 }
 
-// Donut chart using SVG
-function DonutChart({ sales, purchases, itc }: { sales: number; purchases: number; itc: number }) {
-  const total = sales + purchases + itc || 1;
-  const r = 54;
-  const cx = 70;
-  const cy = 70;
-  const circumference = 2 * Math.PI * r;
-
-  function getArc(value: number, offset: number) {
-    const pct = value / total;
-    return { dash: pct * circumference, offset: offset * circumference };
-  }
-
-  const salesArc = getArc(sales, 0);
-  const purchasesArc = getArc(purchases, sales / total);
-  const itcArc = getArc(itc, (sales + purchases) / total);
-
-  return (
-    <svg width="140" height="140" viewBox="0 0 140 140">
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="16" />
-      {/* ITC - violet */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#a78bfa" strokeWidth="16"
-        strokeDasharray={`${itcArc.dash} ${circumference - itcArc.dash}`}
-        strokeDashoffset={circumference - itcArc.offset * circumference}
-        strokeLinecap="round" style={{ transition: "stroke-dasharray 1s ease" }}
-        transform={`rotate(-90 ${cx} ${cy})`} />
-      {/* Purchases - blue */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#60a5fa" strokeWidth="16"
-        strokeDasharray={`${purchasesArc.dash} ${circumference - purchasesArc.dash}`}
-        strokeDashoffset={circumference - purchasesArc.offset * circumference}
-        strokeLinecap="round" style={{ transition: "stroke-dasharray 1s ease" }}
-        transform={`rotate(-90 ${cx} ${cy})`} />
-      {/* Sales - green */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#34d399" strokeWidth="16"
-        strokeDasharray={`${salesArc.dash} ${circumference - salesArc.dash}`}
-        strokeDashoffset={0}
-        strokeLinecap="round" style={{ transition: "stroke-dasharray 1s ease" }}
-        transform={`rotate(-90 ${cx} ${cy})`} />
-      <text x={cx} y={cy - 6} textAnchor="middle" fill="#fff" fontSize="11" fontWeight="700" fontFamily="'IBM Plex Mono',monospace">TOTAL</text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="10" fontFamily="'IBM Plex Mono',monospace">
-        {formatRupees(sales + purchases + itc)}
-      </text>
-    </svg>
-  );
-}
-
-// Health score ring
-function HealthRing({ score, label, color }: { score: number; label: string; color: string }) {
-  const r = 38;
-  const circumference = 2 * Math.PI * r;
-  const dash = (score / 100) * circumference;
-
-  return (
-    <div className="health-ring-wrap">
-      <svg width="100" height="100" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
-        <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="10"
-          strokeDasharray={`${dash} ${circumference - dash}`}
-          strokeDashoffset={circumference * 0.25}
-          strokeLinecap="round"
-          style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.16,1,.3,1)", filter: `drop-shadow(0 0 6px ${color}88)` }} />
-        <text x="50" y="46" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="800" fontFamily="'IBM Plex Mono',monospace">{score}</text>
-        <text x="50" y="60" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="9" fontFamily="'IBM Plex Mono',monospace">/ 100</text>
-      </svg>
-      <div className="health-label" style={{ color }}>{label}</div>
-    </div>
-  );
-}
-
-function DeadlineCard({ code, title, detail, dueDate, delay }: {
-  code: string; title: string; detail: string; dueDate: string; delay: string;
-}) {
-  const meta = getDeadlineTone(dueDate);
-  const days = daysUntil(dueDate);
-  const totalDays = 30;
-  const progress = Math.max(0, Math.min(100, ((totalDays - days) / totalDays) * 100));
-
-  return (
-    <article className={`deadline ${meta.tone} anim-slide`} style={{ animationDelay: delay }}>
-      <div className="deadline-top">
-        <div>
-          <div className="deadline-code">{code}</div>
-          <h3>{title}</h3>
-        </div>
-        <span className={`pill ${meta.tone}`}>
-          {meta.tone === "critical" && <span className="pulse-dot" />}
-          {meta.label}
-        </span>
-      </div>
-      <p>{detail}</p>
-      <div className="deadline-progress">
-        <div className="deadline-bar" style={{ width: `${progress}%` }} />
-      </div>
-      <div className="deadline-date">{formatDate(dueDate)}</div>
-    </article>
-  );
-}
-
-// Bottom Navigation
-function BottomNav({ current, navigate }: { current: Route; navigate: (r: Route) => void }) {
-  const items = [
-    { route: "dashboard" as Route, icon: "⬡", label: "Home" },
-    { route: "scan" as Route, icon: "⊕", label: "Scan" },
-    { route: "invoices" as Route, icon: "☰", label: "Invoices" },
-    { route: "export" as Route, icon: "↓", label: "Export" },
-  ];
-  return (
-    <nav className="bottom-nav">
-      {items.map(({ route, icon, label }) => (
-        <button
-          key={route}
-          className={`bnav-item ${current === route ? "active" : ""}`}
-          onClick={() => navigate(route)}
-        >
-          <span className="bnav-icon">{icon}</span>
-          <span className="bnav-label">{label}</span>
-        </button>
-      ))}
-    </nav>
-  );
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Dashboard Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Dashboard({ navigate, onLogout }: Props) {
+  // State: data load ho raha hai ya nahi
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Business ka naam session se lo
   const [businessName, setBusinessName] = useState(
     getBusinessContext()?.name || "Your Business"
   );
 
+  // Current period labels
   const currentMonth = new Date().toLocaleString("en-IN", { month: "long", year: "numeric" });
-  const currentDateLabel = new Date().toLocaleDateString("en-IN", {
-    weekday: "long", day: "numeric", month: "long",
-  });
 
+  // ── API se dashboard data fetch karo ──────────────────────────────────────
   useEffect(() => {
     const token = getToken();
     const business = getBusinessContext();
     const businessId = business?.id ?? "";
-    const storedBusinessName = business?.name ?? "";
 
+    // Agar token ya business nahi hai toh error dikhao
     if (!token || !businessId) {
-      setData(MOCK_DATA);
+      setError("Session expired. Please log in again.");
       setLoading(false);
       return;
     }
 
+    // Sab APIs ek saath call karo (faster loading)
     async function fetchDashboard() {
       try {
         const [businessRes, invoiceRes, returnsRes] = await Promise.all([
-          fetch(`${BASE_URL}/businesses/${businessId}`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${BASE_URL}/invoices?business_id=${businessId}`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${BASE_URL}/returns?business_id=${businessId}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${BASE_URL}/businesses/${businessId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${BASE_URL}/invoices?business_id=${businessId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${BASE_URL}/returns?business_id=${businessId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
         ]);
 
+        // Business info se naam update karo
         const businessPayload = await businessRes.json().catch(() => null);
-        const invoicePayload = await invoiceRes.json().catch(() => null);
-        const returnsPayload = await returnsRes.json().catch(() => null);
-
         if (businessRes.ok) {
-          const liveBusinessName = businessPayload?.business?.legal_name ?? businessPayload?.business?.trade_name ?? storedBusinessName;
-          if (liveBusinessName) setBusinessName(liveBusinessName);
+          const liveName =
+            businessPayload?.business?.legal_name ??
+            businessPayload?.business?.trade_name ??
+            business?.name ?? "";
+          if (liveName) setBusinessName(liveName);
         }
 
-        if (!invoiceRes.ok) throw new Error("Invoice data unavailable");
+        // Invoice data parse karo
+        if (!invoiceRes.ok) throw new Error("Invoice data could not be loaded.");
+        const invoicePayload = await invoiceRes.json().catch(() => null);
+        const rawInvoices: RawInvoice[] = Array.isArray(
+          invoicePayload?.invoices ?? invoicePayload?.data
+        )
+          ? invoicePayload?.invoices ?? invoicePayload?.data
+          : [];
 
-        const rawInvoices: RawInvoice[] = Array.isArray(invoicePayload?.invoices ?? invoicePayload?.data)
-          ? (invoicePayload?.invoices ?? invoicePayload?.data) : [];
         const invoices = rawInvoices.map(normalizeInvoice);
-        const returns: ReturnSummary[] = Array.isArray(returnsPayload?.returns ?? returnsPayload?.data)
-          ? (returnsPayload?.returns ?? returnsPayload?.data) : [];
 
+        // Returns data parse karo (due dates ke liye)
+        const returnsPayload = await returnsRes.json().catch(() => null);
+        const returns: ReturnSummary[] = Array.isArray(
+          returnsPayload?.returns ?? returnsPayload?.data
+        )
+          ? returnsPayload?.returns ?? returnsPayload?.data
+          : [];
+
+        // Totals calculate karo
         let totalSales = 0, totalPurchases = 0, itcAvailable = 0, taxPayable = 0;
-
-        for (const invoice of rawInvoices) {
-          const taxableValue = Number(invoice.taxable_value ?? 0);
-          const taxAmount = Number(invoice.cgst_amount ?? 0) + Number(invoice.sgst_amount ?? 0) + Number(invoice.igst_amount ?? 0);
-          if (invoice.invoice_type === "sale") { totalSales += taxableValue; taxPayable += taxAmount; }
-          else { totalPurchases += taxableValue; itcAvailable += taxAmount; }
+        for (const inv of rawInvoices) {
+          const taxable = Number(inv.taxable_value ?? 0);
+          const tax = Number(inv.cgst_amount ?? 0) + Number(inv.sgst_amount ?? 0) + Number(inv.igst_amount ?? 0);
+          if (inv.invoice_type === "sale") {
+            totalSales += taxable;
+            taxPayable += tax;
+          } else {
+            totalPurchases += taxable;
+            itcAvailable += tax;
+          }
         }
 
-        const gstr1 = returns.find(i => i.return_type === "GSTR1");
-        const gstr3b = returns.find(i => i.return_type === "GSTR3B");
+        // Due dates dhundo
+        const gstr1 = returns.find((r) => r.return_type === "GSTR1");
+        const gstr3b = returns.find((r) => r.return_type === "GSTR3B");
+
+        // Due date calculate karo agar API se nahi aaya
+        const now = new Date();
+        const nextM = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const dd11 = new Date(nextM.getFullYear(), nextM.getMonth(), 11).toISOString().split("T")[0];
+        const dd20 = new Date(nextM.getFullYear(), nextM.getMonth(), 20).toISOString().split("T")[0];
 
         setData({
-          totalSales, totalPurchases, itcAvailable,
+          totalSales,
+          totalPurchases,
+          itcAvailable,
           taxPayable: Math.max(0, taxPayable - itcAvailable),
-          gstr1DueDate: gstr1?.due_date || MOCK_DATA.gstr1DueDate,
-          gstr3bDueDate: gstr3b?.due_date || MOCK_DATA.gstr3bDueDate,
+          gstr1DueDate: gstr1?.due_date || dd11,
+          gstr3bDueDate: gstr3b?.due_date || dd20,
           recentInvoices: invoices.slice(0, 5),
+          totalInvoices: invoices.length,
         });
-      } catch {
-        setData(MOCK_DATA);
+        setError(null);
+      } catch (err) {
+        // API fail ho toh user ko batao
+        setError(err instanceof Error ? err.message : "Could not load dashboard data.");
       } finally {
         setLoading(false);
       }
@@ -348,461 +270,577 @@ export default function Dashboard({ navigate, onLogout }: Props) {
     fetchDashboard();
   }, []);
 
+  // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <>
         <style>{STYLES}</style>
-        <div className="load">
+        <div className="load-screen">
+          <div className="load-logo">Khata<span>GST</span></div>
           <div className="load-spinner" />
-          <b>KhataGST</b>
-          <span>Building your workspace...</span>
+          <span className="load-text">Loading your workspace…</span>
         </div>
       </>
     );
   }
 
-  const dashboard = data ?? MOCK_DATA;
-  const health = calcHealthScore(dashboard);
-  const liabilityCopy = dashboard.taxPayable > 0
-    ? "Net GST liability after ITC adjustment."
-    : "ITC offsets your liability this cycle.";
-  const filingMode = dashboard.taxPayable > 0 ? "Liability to settle" : "Balanced with credit";
+  // ── Error state — session issue ya API down ────────────────────────────────
+  if (error && !data) {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <div className="load-screen">
+          <div className="load-logo">Khata<span>GST</span></div>
+          <p className="err-msg">{error}</p>
+          <button className="btn-pri" onClick={onLogout}>Return to Login</button>
+        </div>
+      </>
+    );
+  }
 
-  const cards = [
-    ["green", "Taxable sales", formatRupees(dashboard.totalSales), "Current period"],
-    ["blue", "Taxable purchases", formatRupees(dashboard.totalPurchases), "Input invoices"],
-    ["violet", "ITC available", formatRupees(dashboard.itcAvailable), "Captured credit"],
-    [dashboard.taxPayable > 0 ? "amber" : "green", "Net GST payable", formatRupees(dashboard.taxPayable), "After ITC offset"],
-  ] as const;
+  // Dashboard data ready hai, render karo
+  const d = data!;
+  const health = calcHealthScore(d);
+  const g1 = getDeadlineTone(d.gstr1DueDate);
+  const g3b = getDeadlineTone(d.gstr3bDueDate);
 
   return (
     <>
       <style>{STYLES}</style>
 
-      {/* Top Nav */}
-      <nav className="top">
-        <div className="brand">
-          <b>Khata<span>GST</span></b>
-          <small>Financial command center</small>
+      {/* ── Top Navigation Bar ──────────────────────────────────────────── */}
+      <header className="topbar">
+        <div className="topbar-brand">
+          Khata<span>GST</span>
         </div>
-        <div className="center">
+        {/* Business naam aur current period chips */}
+        <div className="topbar-center">
           <span className="chip">{businessName}</span>
-          <span className="chip">{currentMonth}</span>
+          <span className="chip chip-muted">{currentMonth}</span>
         </div>
-        <div className="topnav-actions">
-          <button className="btn soft" onClick={onLogout}>Log out</button>
-        </div>
-      </nav>
+        <button className="btn-ghost" onClick={onLogout}>
+          Logout
+        </button>
+      </header>
 
-      <div className="page">
+      {/* ── Main Page Content ────────────────────────────────────────────── */}
+      <main className="page">
 
-        {/* Hero + Liability */}
-        <section className="hero-grid">
-          <article className="hero anim-fade" style={{ animationDelay: "0s" }}>
-            <div className="kicker">Reporting Cockpit</div>
-            <h1>{businessName}</h1>
-            <p>Monitor liability, credit, deadlines, and invoice activity from one clean workspace.</p>
-            <div className="hero-actions">
-              <button className="btn pri" onClick={() => navigate("scan")}>Capture invoice</button>
-              <button className="btn dark" onClick={() => navigate("invoices")}>Open register</button>
-            </div>
-            <div className="hero-strip">
-              <div><span>Today</span><strong>{currentDateLabel}</strong></div>
-              <div><span>Invoices</span><strong>{dashboard.recentInvoices.length} visible</strong></div>
-              <div><span>Filing posture</span><strong>{filingMode}</strong></div>
-            </div>
-          </article>
-
-          <aside className="side anim-fade" style={{ animationDelay: "0.15s" }}>
-            <div className="liability">
-              <span>Net GST payable</span>
-              <strong className={dashboard.taxPayable > 0 ? "bad" : "good"}>
-                {formatRupees(dashboard.taxPayable)}
-              </strong>
-              <p>{liabilityCopy}</p>
-            </div>
-            <div className="mini-grid">
-              <div className="mini"><span>Output side</span><strong>{formatRupees(dashboard.totalSales)}</strong></div>
-              <div className="mini"><span>Credit side</span><strong>{formatRupees(dashboard.itcAvailable)}</strong></div>
-            </div>
-          </aside>
-        </section>
-
-        {/* Stat Cards */}
-        <section className="stats">
-          {cards.map(([tone, label, value, note], idx) => (
-            <article key={label} className={`stat ${tone} anim-slide`} style={{ animationDelay: `${0.3 + idx * 0.08}s` }}>
-              <div className="label">{label}</div>
-              <div className="value">{value}</div>
-              <div className="note">{note}</div>
-            </article>
-          ))}
-        </section>
-
-        {/* GST Health + Donut Chart */}
-        <section className="grid anim-fade" style={{ animationDelay: "0.5s" }}>
-          <div className="panel chart-panel">
-            <div className="head">
-              <div>
-                <div className="kicker label">Invoice Breakdown</div>
-                <h2>Fund flow</h2>
-              </div>
-            </div>
-            <div className="chart-body">
-              <DonutChart
-                sales={dashboard.totalSales}
-                purchases={dashboard.totalPurchases}
-                itc={dashboard.itcAvailable}
-              />
-              <div className="chart-legend">
-                <div className="legend-item">
-                  <span className="dot" style={{ background: "#34d399" }} />
-                  <div>
-                    <div className="legend-label">Sales</div>
-                    <div className="legend-val">{formatRupees(dashboard.totalSales)}</div>
-                  </div>
-                </div>
-                <div className="legend-item">
-                  <span className="dot" style={{ background: "#60a5fa" }} />
-                  <div>
-                    <div className="legend-label">Purchases</div>
-                    <div className="legend-val">{formatRupees(dashboard.totalPurchases)}</div>
-                  </div>
-                </div>
-                <div className="legend-item">
-                  <span className="dot" style={{ background: "#a78bfa" }} />
-                  <div>
-                    <div className="legend-label">ITC</div>
-                    <div className="legend-val">{formatRupees(dashboard.itcAvailable)}</div>
-                  </div>
-                </div>
-              </div>
+        {/* ── Hero Strip: Business naam + quick stats ──────────────────── */}
+        <section className="hero-strip">
+          <div className="hero-left">
+            <div className="hero-eyebrow">Dashboard</div>
+            <h1 className="hero-title">{businessName}</h1>
+            <p className="hero-sub">
+              {d.totalInvoices === 0
+                ? "Add your first invoice to get started."
+                : `${d.totalInvoices} invoice${d.totalInvoices !== 1 ? "s" : ""} tracked this period.`}
+            </p>
+            <div className="hero-btns">
+              <button className="btn-pri" onClick={() => navigate("scan")}>
+                + Scan Invoice
+              </button>
+              <button className="btn-out" onClick={() => navigate("invoices")}>
+                View All Invoices
+              </button>
             </div>
           </div>
-
-          <div className="panel health-panel">
-            <div className="head">
-              <div>
-                <div className="kicker label">Compliance Score</div>
-                <h2>GST health</h2>
+          {/* GST Health Score ring */}
+          <div className="hero-right">
+            <div className="health-card">
+              <div className="health-label">GST Health</div>
+              <div className="health-score" style={{ color: health.color }}>
+                {health.score}
               </div>
-            </div>
-            <div className="health-body">
-              <HealthRing score={health.score} label={health.label} color={health.color} />
+              <div className="health-badge" style={{ color: health.color }}>
+                {health.label}
+              </div>
               <div className="health-checks">
                 <div className="hcheck">
-                  <span className={daysUntil(dashboard.gstr1DueDate) >= 0 ? "ok" : "no"}>
-                    {daysUntil(dashboard.gstr1DueDate) >= 0 ? "✓" : "✗"}
-                  </span>
-                  GSTR-1 {daysUntil(dashboard.gstr1DueDate) >= 0 ? "on track" : "overdue"}
+                  <span className={g1.tone === "safe" ? "dot-ok" : "dot-warn"} />
+                  GSTR-1: {g1.label}
                 </div>
                 <div className="hcheck">
-                  <span className={daysUntil(dashboard.gstr3bDueDate) >= 0 ? "ok" : "no"}>
-                    {daysUntil(dashboard.gstr3bDueDate) >= 0 ? "✓" : "✗"}
-                  </span>
-                  GSTR-3B {daysUntil(dashboard.gstr3bDueDate) >= 0 ? "on track" : "overdue"}
-                </div>
-                <div className="hcheck">
-                  <span className={dashboard.taxPayable === 0 ? "ok" : "warn"}>
-                    {dashboard.taxPayable === 0 ? "✓" : "!"}
-                  </span>
-                  {dashboard.taxPayable === 0 ? "Liability cleared" : "Liability pending"}
-                </div>
-                <div className="hcheck">
-                  <span className={!dashboard.recentInvoices.some(i => i.gst_status === "unmatched") ? "ok" : "no"}>
-                    {!dashboard.recentInvoices.some(i => i.gst_status === "unmatched") ? "✓" : "✗"}
-                  </span>
-                  {dashboard.recentInvoices.some(i => i.gst_status === "unmatched") ? "Mismatches found" : "No mismatches"}
+                  <span className={g3b.tone === "safe" ? "dot-ok" : "dot-warn"} />
+                  GSTR-3B: {g3b.label}
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Deadlines */}
-        <section className="grid anim-fade" style={{ animationDelay: "0.55s" }}>
-          <div className="panel">
-            <div className="head">
-              <div>
-                <div className="kicker label">Compliance Calendar</div>
-                <h2>Deadline runway</h2>
-              </div>
-              <button className="link" onClick={() => navigate("export")}>Prepare export</button>
-            </div>
-            <div className="deadline-grid">
-              <DeadlineCard code="GSTR-1" title="Sales return"
-                detail="Review outward supply before generating your filing workbook."
-                dueDate={dashboard.gstr1DueDate} delay="0.65s" />
-              <DeadlineCard code="GSTR-3B" title="Tax payment"
-                detail="Validate liability after ITC and plan your payment."
-                dueDate={dashboard.gstr3bDueDate} delay="0.7s" />
-            </div>
+        {/* ── 4 Metric Cards ───────────────────────────────────────────── */}
+        <section className="stat-grid">
+          {/* Total Sales */}
+          <div className="stat-card">
+            <div className="stat-icon stat-icon-green">↑</div>
+            <div className="stat-label">Total Sales</div>
+            <div className="stat-value stat-green">{formatRupees(d.totalSales)}</div>
+            <div className="stat-sub">Taxable outward supply</div>
           </div>
 
-          <aside className="panel side-panel anim-fade" style={{ animationDelay: "0.6s" }}>
-            <div>
-              <div className="kicker label">Control Center</div>
-              <h2>Quick actions</h2>
+          {/* Total Purchases */}
+          <div className="stat-card">
+            <div className="stat-icon stat-icon-blue">↓</div>
+            <div className="stat-label">Total Purchases</div>
+            <div className="stat-value stat-blue">{formatRupees(d.totalPurchases)}</div>
+            <div className="stat-sub">Taxable inward supply</div>
+          </div>
+
+          {/* ITC Available */}
+          <div className="stat-card">
+            <div className="stat-icon stat-icon-violet">◈</div>
+            <div className="stat-label">ITC Available</div>
+            <div className="stat-value stat-violet">{formatRupees(d.itcAvailable)}</div>
+            <div className="stat-sub">Input tax credit</div>
+          </div>
+
+          {/* Net GST Payable */}
+          <div className="stat-card">
+            <div className={`stat-icon ${d.taxPayable > 0 ? "stat-icon-amber" : "stat-icon-green"}`}>₹</div>
+            <div className="stat-label">Net GST Payable</div>
+            <div className={`stat-value ${d.taxPayable > 0 ? "stat-amber" : "stat-green"}`}>
+              {d.taxPayable > 0 ? formatRupees(d.taxPayable) : "Nil"}
             </div>
-            <div className="actions-list">
-              <button className="action" onClick={() => navigate("scan")}>
-                <strong>📷  Capture invoice</strong>
-                <span>Upload a bill and extract fields with AI.</span>
-              </button>
-              <button className="action" onClick={() => navigate("invoices")}>
-                <strong>📋  Invoice register</strong>
-                <span>View all transactions and GST matching status.</span>
-              </button>
-              <button className="action" onClick={() => navigate("export")}>
-                <strong>📦  Export package</strong>
-                <span>Generate Excel or CSV for filing.</span>
-              </button>
+            <div className="stat-sub">
+              {d.taxPayable > 0 ? "After ITC offset" : "ITC covers liability"}
             </div>
-          </aside>
+          </div>
         </section>
 
-        {/* Recent Invoices */}
-        <section className="panel anim-fade" style={{ animationDelay: "0.75s" }}>
-          <div className="head">
-            <div>
-              <div className="kicker label">Recent Activity</div>
-              <h2>Latest invoices</h2>
-            </div>
-            <button className="link" onClick={() => navigate("invoices")}>View all</button>
+        {/* ── Deadline Cards + Quick Actions ───────────────────────────── */}
+        <section className="mid-grid">
+          {/* GSTR-1 Deadline */}
+          <div className={`deadline-card ${g1.urgent ? "deadline-urgent" : ""}`}>
+            <div className="deadline-code">GSTR-1</div>
+            <div className="deadline-name">Sales Return</div>
+            <div className="deadline-date">{formatDate(d.gstr1DueDate)}</div>
+            <span className={`deadline-pill ${g1.tone}`}>{g1.label}</span>
+            <p className="deadline-desc">
+              File all outward B2B/B2C supply details before this date.
+            </p>
+            <button className="deadline-btn" onClick={() => navigate("export")}>
+              Prepare Export
+            </button>
           </div>
 
-          {dashboard.recentInvoices.length === 0 ? (
-            <div className="empty">
-              <strong>No invoices yet</strong>
-              <span>Scan your first invoice to activate the dashboard.</span>
-              <button className="btn pri" onClick={() => navigate("scan")}>Scan first invoice</button>
+          {/* GSTR-3B Deadline */}
+          <div className={`deadline-card ${g3b.urgent ? "deadline-urgent" : ""}`}>
+            <div className="deadline-code">GSTR-3B</div>
+            <div className="deadline-name">Tax Payment</div>
+            <div className="deadline-date">{formatDate(d.gstr3bDueDate)}</div>
+            <span className={`deadline-pill ${g3b.tone}`}>{g3b.label}</span>
+            <p className="deadline-desc">
+              Pay your net GST liability after adjusting ITC.
+            </p>
+            <button className="deadline-btn" onClick={() => navigate("export")}>
+              View Summary
+            </button>
+          </div>
+
+          {/* Quick Actions Panel */}
+          <div className="actions-panel">
+            <div className="panel-title">Quick Actions</div>
+            <button className="action-row" onClick={() => navigate("scan")}>
+              <div className="action-icon action-orange">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7"/><path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7"/>
+                  <path d="M20 17v1.5a1.5 1.5 0 0 1-1.5 1.5H17"/><path d="M7 20H5.5A1.5 1.5 0 0 1 4 18.5V17"/>
+                  <path d="M12 8v8"/><path d="M8 12h8"/>
+                </svg>
+              </div>
+              <div className="action-text">
+                <strong>Scan Invoice</strong>
+                <span>AI-powered bill extraction</span>
+              </div>
+              <span className="action-arrow">›</span>
+            </button>
+            <button className="action-row" onClick={() => navigate("invoices")}>
+              <div className="action-icon action-blue">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/>
+                  <path d="M14 3.5V8h4"/><path d="M9 12h6"/><path d="M9 16h6"/>
+                </svg>
+              </div>
+              <div className="action-text">
+                <strong>Invoice Register</strong>
+                <span>View and manage all invoices</span>
+              </div>
+              <span className="action-arrow">›</span>
+            </button>
+            <button className="action-row" onClick={() => navigate("export")}>
+              <div className="action-icon action-green">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 4v10"/><path d="m8.5 10.5 3.5 3.5 3.5-3.5"/>
+                  <path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5"/>
+                </svg>
+              </div>
+              <div className="action-text">
+                <strong>Export Package</strong>
+                <span>Download GSTR Excel or CSV</span>
+              </div>
+              <span className="action-arrow">›</span>
+            </button>
+          </div>
+        </section>
+
+        {/* ── Recent Invoices Table ─────────────────────────────────────── */}
+        <section className="invoices-panel">
+          <div className="panel-header">
+            <div className="panel-title">Recent Invoices</div>
+            <button className="link-btn" onClick={() => navigate("invoices")}>
+              View all →
+            </button>
+          </div>
+
+          {/* Agar koi invoice nahi hai toh empty state dikhao */}
+          {d.recentInvoices.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/>
+                  <path d="M14 3.5V8h4"/><path d="M9 12h6"/><path d="M9 16h6"/>
+                </svg>
+              </div>
+              <p className="empty-title">No invoices yet</p>
+              <p className="empty-sub">Scan your first GST invoice to activate tracking.</p>
+              <button className="btn-pri" onClick={() => navigate("scan")}>
+                Scan First Invoice
+              </button>
             </div>
           ) : (
-            <div className="rows">
-              {dashboard.recentInvoices.map((invoice) => {
-                const status = getStatusTone(invoice.gst_status);
-                return (
-                  <button key={invoice.id} className="row" onClick={() => navigate("invoices")}>
-                    <div>
-                      <div className="num">{invoice.invoice_number}</div>
-                      <div className="party">{invoice.party_name}</div>
-                    </div>
-                    <div className="meta">
-                      <span className={`type ${invoice.invoice_type === "sale" ? "sale" : "purchase"}`}>
-                        {invoice.invoice_type === "sale" ? "Sale" : "Purchase"}
-                      </span>
-                      <span className={`status ${status.tone}`}>{status.label}</span>
-                      <span className="date">{formatDate(invoice.invoice_date)}</span>
-                    </div>
-                    <div className="amt">{formatRupees(invoice.total_amount)}</div>
-                  </button>
-                );
-              })}
+            <div className="inv-table">
+              {/* Table Header */}
+              <div className="inv-row inv-header">
+                <span>Invoice No.</span>
+                <span>Party</span>
+                <span>Date</span>
+                <span>Type</span>
+                <span>Status</span>
+                <span className="text-right">Amount</span>
+              </div>
+              {/* Invoice rows */}
+              {d.recentInvoices.map((inv) => (
+                <button
+                  key={inv.id}
+                  className="inv-row inv-data-row"
+                  onClick={() => navigate("invoices")}
+                >
+                  <span className="inv-num">{inv.invoice_number}</span>
+                  <span className="inv-party">{inv.party_name}</span>
+                  <span className="inv-date">{formatDate(inv.invoice_date)}</span>
+                  <span className={`inv-badge ${inv.invoice_type === "sale" ? "badge-sale" : "badge-pur"}`}>
+                    {inv.invoice_type === "sale" ? "Sale" : "Purchase"}
+                  </span>
+                  <span className={`inv-badge ${
+                    inv.gst_status === "matched" ? "badge-ok" :
+                    inv.gst_status === "unmatched" ? "badge-bad" : "badge-warn"
+                  }`}>
+                    {inv.gst_status === "matched" ? "Matched" :
+                     inv.gst_status === "unmatched" ? "Mismatch" : "Pending"}
+                  </span>
+                  <span className="inv-amount">{formatRupees(inv.total_amount)}</span>
+                </button>
+              ))}
             </div>
           )}
         </section>
-      </div>
 
-      {/* Bottom Nav */}
-      <BottomNav current="dashboard" navigate={navigate} />
+      </main>
     </>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// STYLES — Clean SaaS design, no glassmorphism overdose
+// Light background, subtle shadows, orange brand color
+// ─────────────────────────────────────────────────────────────────────────────
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
-*{box-sizing:border-box}
-body{margin:0;background:#060a14;font-family:'Syne',sans-serif;color:#f1f5f9;-webkit-font-smoothing:antialiased}
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 15% 5%,rgba(255,107,0,.08),transparent 45%),radial-gradient(ellipse at 85% 80%,rgba(99,102,241,.06),transparent 45%)}
-button{font-family:inherit}
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=JetBrains+Mono:wght@600;700&display=swap');
 
-/* Loading */
-.load{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;position:relative;z-index:1}
-.load b{font:700 28px 'IBM Plex Mono',monospace;background:linear-gradient(135deg,#fff,rgba(255,255,255,.6));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.load span{font-size:14px;color:#64748b}
-.load-spinner{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,.08);border-top-color:#ff6b00;animation:spin .7s linear infinite}
+/* ── Reset & Base ──────────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#f9fafb;
+  font-family:'Inter',sans-serif;
+  color:#111827;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+button{font-family:inherit;cursor:pointer;border:none;outline:none}
 
-/* Top Nav — Premium Glassmorphic */
-.top{position:sticky;top:0;z-index:120;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.04);background:rgba(6,10,20,.85);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4)}
-.brand{display:flex;flex-direction:column;gap:2px}
-.brand b{font:700 18px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-.02em}
-.brand b span{background:linear-gradient(135deg,#ff6b00,#ff9a3d);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.brand small,.kicker,.label{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.25)}
-.center{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
-.chip{display:inline-flex;align-items:center;padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:12px;font-weight:600;color:rgba(255,255,255,.55);backdrop-filter:blur(8px);transition:all .2s ease}
-.chip:hover{border-color:rgba(255,107,0,.15);background:rgba(255,107,0,.04)}
-.topnav-actions{display:flex;gap:8px}
-
-/* Buttons */
-.btn,.link{border:none;cursor:pointer;transition:all .25s cubic-bezier(.16,1,.3,1);font-family:'Syne',sans-serif}
-.btn:hover,.link:hover{transform:translateY(-2px)}
-.btn{padding:10px 16px;border-radius:14px;font-size:13px;font-weight:700}
-.soft{background:rgba(255,255,255,.05);color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.07);backdrop-filter:blur(6px)}
-.soft:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12)}
-.pri{background:linear-gradient(135deg,#ff7a1a,#e8590c);color:#fff;box-shadow:0 8px 24px rgba(234,88,12,.3),0 0 0 1px rgba(255,107,0,.15) inset}
-.pri:hover{box-shadow:0 14px 32px rgba(234,88,12,.45),0 0 0 1px rgba(255,107,0,.2) inset}
-.dark{background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.08)}
-.dark:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.14)}
-.link{padding:0;background:none;color:#ff8a3d;font-size:13px;font-weight:700}
-.link:hover{color:#ff6b00}
-.hero-actions{display:flex;flex-wrap:wrap;gap:8px;position:relative;z-index:2}
-
-/* Page */
-.page{max-width:1200px;margin:0 auto;padding:24px 20px 110px;display:flex;flex-direction:column;gap:20px;position:relative;z-index:1}
-.hero-grid,.grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.82fr);gap:16px}
-
-/* Hero — Premium with animated glow */
-.hero{position:relative;overflow:hidden;padding:36px;border-radius:28px;background:linear-gradient(135deg,#0c1629 0%,#152247 50%,#0f1a33 100%);color:#fff;border:1px solid rgba(255,255,255,.06);box-shadow:0 28px 64px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.03) inset}
-.hero::before{content:'';position:absolute;top:-50%;right:-25%;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(255,107,0,.18),transparent 65%);filter:blur(80px);animation:heroGlow 8s ease-in-out infinite;pointer-events:none}
-.hero::after{content:'';position:absolute;bottom:-30%;left:-15%;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.1),transparent 65%);filter:blur(80px);animation:heroGlow 12s ease-in-out infinite reverse;pointer-events:none}
-@keyframes heroGlow{0%,100%{opacity:.4;transform:translate(0,0) scale(1)}50%{opacity:.8;transform:translate(15px,-10px) scale(1.1)}}
-.hero .kicker{position:relative;z-index:2;margin-bottom:12px;color:rgba(255,255,255,.3)}
-.hero h1{position:relative;z-index:2;margin:0;font-size:clamp(28px,4.2vw,44px);line-height:1;font-weight:800;letter-spacing:-.04em;background:linear-gradient(180deg,#fff 15%,rgba(255,255,255,.5) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero p{position:relative;z-index:2;max-width:52ch;margin:16px 0 20px;font-size:14px;line-height:1.85;color:rgba(255,255,255,.4)}
-.hero-strip{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
-.hero-strip div{padding:16px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);backdrop-filter:blur(8px);transition:all .25s ease}
-.hero-strip div:hover{border-color:rgba(255,107,0,.12);background:rgba(255,107,0,.03);transform:translateY(-2px)}
-.hero-strip span{display:block;margin-bottom:5px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25)}
-.hero-strip strong{font-size:13px;color:#fff}
-
-/* Side */
-.side{display:flex;flex-direction:column;gap:12px}
-.liability{padding:22px;border-radius:22px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.025);backdrop-filter:blur(10px);transition:border-color .3s ease}
-.liability:hover{border-color:rgba(255,255,255,.1)}
-.liability span{display:block;margin-bottom:8px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25)}
-.liability strong{display:block;margin-bottom:10px;font:700 34px 'IBM Plex Mono',monospace}
-.liability .good{background:linear-gradient(135deg,#34d399,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 12px rgba(52,211,153,.2))}
-.liability .bad{background:linear-gradient(135deg,#fb923c,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 12px rgba(251,146,60,.2))}
-.liability p{margin:0;font-size:13px;line-height:1.65;color:rgba(255,255,255,.35)}
-.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.mini{padding:18px;border-radius:18px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.025);backdrop-filter:blur(8px);transition:all .25s ease}
-.mini:hover{border-color:rgba(255,255,255,.1);transform:translateY(-2px)}
-.mini span{display:block;margin-bottom:5px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25)}
-.mini strong{font-size:14px;color:#fff;font-family:'IBM Plex Mono',monospace}
-
-/* Stats — Premium glassmorphic cards */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.stat{position:relative;overflow:hidden;padding:22px;border-radius:20px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.025);backdrop-filter:blur(10px);transition:all .3s cubic-bezier(.16,1,.3,1)}
-.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)}
-.stat:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
-.stat .label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25)}
-.stat .value{margin:12px 0 8px;font:700 24px 'IBM Plex Mono',monospace}
-.stat .note{font-size:11px;color:rgba(255,255,255,.25)}
-.green .value{background:linear-gradient(135deg,#34d399,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.green:hover{border-color:rgba(52,211,153,.2);box-shadow:0 16px 40px rgba(0,0,0,.3),0 0 24px rgba(52,211,153,.06)}
-.blue .value{background:linear-gradient(135deg,#60a5fa,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.blue:hover{border-color:rgba(96,165,250,.2);box-shadow:0 16px 40px rgba(0,0,0,.3),0 0 24px rgba(96,165,250,.06)}
-.violet .value{background:linear-gradient(135deg,#a78bfa,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.violet:hover{border-color:rgba(167,139,250,.2);box-shadow:0 16px 40px rgba(0,0,0,.3),0 0 24px rgba(167,139,250,.06)}
-.amber .value{background:linear-gradient(135deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.amber:hover{border-color:rgba(251,191,36,.2);box-shadow:0 16px 40px rgba(0,0,0,.3),0 0 24px rgba(251,191,36,.06)}
-
-/* Panel — Premium glass */
-.panel{padding:24px;border-radius:24px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.025);backdrop-filter:blur(10px);transition:border-color .3s ease}
-.panel:hover{border-color:rgba(255,255,255,.08)}
-.panel h2{margin:0;font-size:20px;line-height:1.1;font-weight:800;letter-spacing:-.03em;color:#fff}
-.head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
-
-/* Chart panel */
-.chart-panel .chart-body{display:flex;align-items:center;gap:24px;padding-top:8px}
-.chart-legend{display:flex;flex-direction:column;gap:14px}
-.legend-item{display:flex;align-items:center;gap:10px}
-.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px currentColor}
-.legend-label{font-size:11px;color:rgba(255,255,255,.35);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
-.legend-val{font:700 14px 'IBM Plex Mono',monospace;color:#fff}
-
-/* Health panel */
-.health-panel .health-body{display:flex;align-items:center;gap:20px;padding-top:8px}
-.health-ring-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0}
-.health-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.health-checks{display:flex;flex-direction:column;gap:10px}
-.hcheck{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.55)}
-.hcheck span{width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
-.hcheck span.ok{background:rgba(52,211,153,.12);color:#34d399}
-.hcheck span.no{background:rgba(239,68,68,.12);color:#ef4444}
-.hcheck span.warn{background:rgba(251,191,36,.12);color:#fbbf24}
-
-/* Deadlines */
-.deadline-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.deadline{padding:20px;border-radius:20px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02);backdrop-filter:blur(6px);transition:all .25s cubic-bezier(.16,1,.3,1)}
-.deadline:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.1);box-shadow:0 12px 28px rgba(0,0,0,.3)}
-.deadline-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.deadline-code{font:700 12px 'IBM Plex Mono',monospace;letter-spacing:.06em}
-.deadline h3{margin:4px 0 0;font-size:16px;line-height:1.2;color:#fff}
-.deadline p{margin:10px 0 12px;font-size:12px;line-height:1.7;color:rgba(255,255,255,.32)}
-.deadline-date{margin-top:8px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5)}
-.deadline-progress{width:100%;height:3px;border-radius:3px;background:rgba(255,255,255,.05);overflow:hidden}
-.deadline-bar{height:100%;border-radius:3px;transition:width 1s ease}
-.stable .deadline-code{color:#34d399}.stable .deadline-bar{background:linear-gradient(90deg,#34d399,#10b981)}
-.warning .deadline-code{color:#fbbf24}.warning .deadline-bar{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
-.critical .deadline-code{color:#ef4444}.critical .deadline-bar{background:linear-gradient(90deg,#ef4444,#dc2626)}
-.pill{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
-.stable.pill{background:rgba(52,211,153,.06);color:#34d399;border:1px solid rgba(52,211,153,.1)}
-.warning.pill{background:rgba(251,191,36,.06);color:#fbbf24;border:1px solid rgba(251,191,36,.1)}
-.critical.pill{background:rgba(239,68,68,.06);color:#ef4444;border:1px solid rgba(239,68,68,.1)}
-.pulse-dot{width:5px;height:5px;border-radius:50%;background:#ef4444;animation:pulse 1.5s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
-
-/* Actions */
-.side-panel{display:flex;flex-direction:column;gap:14px}
-.actions-list{display:flex;flex-direction:column;gap:8px}
-.action{width:100%;padding:18px;border-radius:18px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02);text-align:left;cursor:pointer;backdrop-filter:blur(6px);transition:all .25s cubic-bezier(.16,1,.3,1)}
-.action:hover{transform:translateY(-3px);border-color:rgba(255,107,0,.18);background:rgba(255,107,0,.03);box-shadow:0 12px 24px rgba(0,0,0,.25)}
-.action strong{display:block;margin-bottom:6px;font-size:14px;font-weight:800;color:#fff}
-.action span{font-size:12px;line-height:1.65;color:rgba(255,255,255,.32)}
-
-/* Invoices */
-.rows{display:flex;flex-direction:column;gap:8px}
-.row{width:100%;display:grid;grid-template-columns:minmax(0,1.2fr) auto auto;align-items:center;gap:12px;padding:16px 18px;border-radius:16px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);text-align:left;cursor:pointer;transition:all .25s cubic-bezier(.16,1,.3,1)}
-.row:hover{transform:translateX(4px);border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.035)}
-.num{font:700 12px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.5)}
-.party{font-size:13px;color:rgba(255,255,255,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.meta{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
-.type,.status{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
-.type.sale{background:rgba(52,211,153,.06);color:#34d399;border:1px solid rgba(52,211,153,.08)}
-.type.purchase{background:rgba(96,165,250,.06);color:#60a5fa;border:1px solid rgba(96,165,250,.08)}
-.status.good{background:rgba(52,211,153,.06);color:#34d399}
-.status.warn{background:rgba(251,191,36,.06);color:#fbbf24}
-.status.bad{background:rgba(239,68,68,.06);color:#ef4444}
-.date{font-size:11px;color:rgba(255,255,255,.22)}
-.amt{font:700 14px 'IBM Plex Mono',monospace;color:#fff}
-.empty{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:20px 0}
-.empty strong{font-size:16px;color:#fff}
-.empty span{font-size:13px;color:rgba(255,255,255,.35)}
-
-/* Bottom Nav */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;display:flex;align-items:center;justify-content:space-around;padding:10px 8px calc(10px + env(safe-area-inset-bottom));background:rgba(6,10,20,.92);border-top:1px solid rgba(255,255,255,.05);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4)}
-.bnav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 20px;border:none;background:none;cursor:pointer;border-radius:16px;transition:all .25s cubic-bezier(.16,1,.3,1);min-width:64px}
-.bnav-item:hover{background:rgba(255,255,255,.04);transform:translateY(-2px)}
-.bnav-item.active{background:rgba(255,107,0,.08)}
-.bnav-icon{font-size:18px;line-height:1;color:rgba(255,255,255,.3);transition:color .2s ease}
-.bnav-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.25);transition:color .2s ease}
-.bnav-item.active .bnav-icon,.bnav-item.active .bnav-label{color:#ff7a1a}
-
-/* Animations */
-.anim-fade{opacity:0;transform:translateY(16px);animation:fade-up .7s cubic-bezier(.16,1,.3,1) forwards}
-.anim-slide{opacity:0;transform:translateY(12px);animation:slide-up .5s cubic-bezier(.16,1,.3,1) forwards}
-@keyframes fade-up{to{opacity:1;transform:translateY(0)}}
-@keyframes slide-up{to{opacity:1;transform:translateY(0)}}
+/* ── Loading screen ────────────────────────────────────────────────────── */
+.load-screen{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;background:#f9fafb;
+}
+.load-logo{
+  font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#111827;
+}
+.load-logo span{color:#f97316}
+.load-spinner{
+  width:32px;height:32px;border-radius:50%;
+  border:3px solid #e5e7eb;border-top-color:#f97316;
+  animation:spin .7s linear infinite;
+}
+.load-text{font-size:14px;color:#6b7280}
+.err-msg{font-size:15px;color:#dc2626;text-align:center;max-width:320px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* Responsive */
-@media (max-width:1080px){.top{grid-template-columns:1fr}.hero-grid,.grid,.stats{grid-template-columns:1fr}.center{display:none}}
-@media (max-width:780px){
-  .hero-strip,.mini-grid,.deadline-grid{grid-template-columns:1fr}
-  .row{grid-template-columns:1fr}
-  .meta{justify-content:flex-start}
-  .stats{grid-template-columns:repeat(2,1fr)}
-  .chart-panel .chart-body{flex-direction:column;align-items:flex-start}
-  .health-panel .health-body{flex-direction:column;align-items:flex-start}
+/* ── Top Navigation Bar ────────────────────────────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;gap:16px;
+  padding:0 24px;height:56px;
+  background:#fff;border-bottom:1px solid #e5e7eb;
 }
-@media (max-width:640px){
-  .page{padding:16px 12px 110px}
-  .top{padding:12px 14px}
-  .hero,.panel{padding:20px;border-radius:20px}
-  .head{flex-direction:column;align-items:flex-start}
-  .hero h1{font-size:26px}
-  .stats{grid-template-columns:1fr}
-  .topnav-actions .btn{font-size:12px;padding:8px 12px}
+.topbar-brand{
+  font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#111827;
+  margin-right:auto;
+}
+.topbar-brand span{color:#f97316}
+.topbar-center{display:flex;gap:8px;align-items:center}
+.chip{
+  display:inline-flex;align-items:center;
+  padding:5px 12px;border-radius:6px;
+  border:1px solid #e5e7eb;background:#fff;
+  font-size:12px;font-weight:600;color:#374151;
+}
+.chip-muted{color:#9ca3af;border-color:#f3f4f6;background:#f9fafb}
+.btn-ghost{
+  padding:7px 14px;border-radius:6px;
+  background:transparent;font-size:13px;font-weight:600;
+  color:#6b7280;border:1px solid #e5e7eb;
+  transition:all .15s;
+}
+.btn-ghost:hover{background:#f3f4f6;color:#374151}
+
+/* ── Main Page ─────────────────────────────────────────────────────────── */
+.page{
+  max-width:1100px;margin:0 auto;
+  padding:28px 24px 120px;
+  display:flex;flex-direction:column;gap:20px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.btn-pri{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 18px;border-radius:8px;
+  background:#f97316;color:#fff;
+  font-size:14px;font-weight:600;
+  box-shadow:0 1px 3px rgba(249,115,22,.3);
+  transition:all .15s;
+}
+.btn-pri:hover{background:#ea580c;box-shadow:0 4px 12px rgba(249,115,22,.35);transform:translateY(-1px)}
+.btn-out{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 18px;border-radius:8px;
+  background:#fff;color:#374151;
+  font-size:14px;font-weight:600;
+  border:1px solid #d1d5db;
+  transition:all .15s;
+}
+.btn-out:hover{background:#f9fafb;transform:translateY(-1px)}
+.link-btn{
+  background:none;border:none;padding:0;
+  font-size:13px;font-weight:600;color:#f97316;
+  cursor:pointer;transition:color .15s;
+}
+.link-btn:hover{color:#ea580c}
+
+/* ── Hero Strip ─────────────────────────────────────────────────────────── */
+.hero-strip{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:24px;padding:28px;border-radius:12px;
+  background:#fff;border:1px solid #e5e7eb;
+}
+.hero-left{flex:1}
+.hero-eyebrow{
+  font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:#9ca3af;margin-bottom:8px;
+}
+.hero-title{
+  font-size:clamp(22px,3vw,30px);font-weight:800;
+  letter-spacing:-.02em;color:#111827;line-height:1.2;margin-bottom:6px;
+}
+.hero-sub{font-size:14px;color:#6b7280;margin-bottom:18px;line-height:1.5}
+.hero-btns{display:flex;gap:10px;flex-wrap:wrap}
+.hero-right{flex-shrink:0}
+
+/* GST Health Card */
+.health-card{
+  padding:20px 24px;border-radius:10px;
+  background:#f9fafb;border:1px solid #e5e7eb;
+  text-align:center;min-width:160px;
+}
+.health-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px}
+.health-score{font-size:40px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1}
+.health-badge{font-size:12px;font-weight:700;margin-top:4px}
+.health-checks{margin-top:12px;display:flex;flex-direction:column;gap:6px;text-align:left}
+.hcheck{display:flex;align-items:center;gap:7px;font-size:12px;color:#6b7280}
+.dot-ok{width:7px;height:7px;border-radius:50%;background:#10b981;flex-shrink:0}
+.dot-warn{width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0}
+
+/* ── Stat Cards Grid ────────────────────────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat-card{
+  padding:20px;border-radius:10px;
+  background:#fff;border:1px solid #e5e7eb;
+  transition:box-shadow .2s,transform .2s;
+}
+.stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06);transform:translateY(-2px)}
+.stat-icon{
+  width:34px;height:34px;border-radius:8px;display:inline-flex;
+  align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;margin-bottom:12px;
+}
+.stat-icon-green{background:#d1fae5;color:#065f46}
+.stat-icon-blue{background:#dbeafe;color:#1e40af}
+.stat-icon-violet{background:#ede9fe;color:#4c1d95}
+.stat-icon-amber{background:#fef3c7;color:#92400e}
+.stat-label{font-size:12px;font-weight:600;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.stat-value{
+  font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;
+  letter-spacing:-.02em;margin-bottom:4px;line-height:1.1;
+}
+.stat-green{color:#059669}
+.stat-blue{color:#2563eb}
+.stat-violet{color:#7c3aed}
+.stat-amber{color:#d97706}
+.stat-sub{font-size:12px;color:#9ca3af}
+
+/* ── Mid Grid (deadlines + actions) ──────────────────────────────────────── */
+.mid-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+
+/* Deadline Card */
+.deadline-card{
+  padding:20px;border-radius:10px;
+  background:#fff;border:1px solid #e5e7eb;
+  display:flex;flex-direction:column;gap:8px;
+  transition:box-shadow .2s;
+}
+.deadline-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.deadline-urgent{border-color:#fca5a5;background:#fff7f7}
+.deadline-code{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;font-weight:700;letter-spacing:.08em;color:#9ca3af;
+}
+.deadline-name{font-size:16px;font-weight:700;color:#111827}
+.deadline-date{font-size:13px;font-weight:600;color:#374151}
+.deadline-desc{font-size:12px;color:#6b7280;line-height:1.55;flex:1}
+.deadline-pill{
+  display:inline-flex;align-items:center;
+  padding:3px 9px;border-radius:99px;
+  font-size:11px;font-weight:700;
+}
+.safe{background:#d1fae5;color:#065f46}
+.warning{background:#fef3c7;color:#92400e}
+.overdue{background:#fee2e2;color:#991b1b}
+.deadline-btn{
+  width:100%;padding:9px;border-radius:7px;
+  border:1px solid #e5e7eb;background:#f9fafb;
+  font-size:13px;font-weight:600;color:#374151;
+  transition:all .15s;margin-top:2px;
+}
+.deadline-btn:hover{background:#f3f4f6;border-color:#d1d5db}
+
+/* Actions Panel */
+.actions-panel{
+  padding:20px;border-radius:10px;
+  background:#fff;border:1px solid #e5e7eb;
+}
+.panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:12px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.action-row{
+  width:100%;display:flex;align-items:center;gap:12px;
+  padding:12px;border-radius:8px;background:transparent;
+  border:1px solid transparent;text-align:left;
+  transition:all .15s;margin-bottom:6px;color:#111827;
+}
+.action-row:last-child{margin-bottom:0}
+.action-row:hover{background:#f9fafb;border-color:#e5e7eb}
+.action-icon{
+  width:34px;height:34px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.action-orange{background:#fef3c7;color:#ea580c}
+.action-blue{background:#dbeafe;color:#1d4ed8}
+.action-green{background:#d1fae5;color:#059669}
+.action-text{flex:1}
+.action-text strong{display:block;font-size:13px;font-weight:700;color:#111827;margin-bottom:1px}
+.action-text span{font-size:12px;color:#6b7280}
+.action-arrow{font-size:18px;color:#d1d5db;font-weight:300}
+
+/* ── Invoices Panel ──────────────────────────────────────────────────────── */
+.invoices-panel{
+  padding:20px;border-radius:10px;
+  background:#fff;border:1px solid #e5e7eb;
+}
+.inv-table{display:flex;flex-direction:column}
+.inv-row{
+  display:grid;
+  grid-template-columns:120px 1fr 100px 80px 85px 100px;
+  gap:12px;align-items:center;padding:11px 14px;
+  font-size:13px;
+}
+.inv-header{
+  color:#6b7280;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid #e5e7eb;padding-bottom:10px;margin-bottom:4px;
+}
+.inv-data-row{
+  width:100%;text-align:left;background:transparent;border:none;
+  border-radius:7px;cursor:pointer;color:#111827;
+  transition:background .12s;
+}
+.inv-data-row:hover{background:#f9fafb}
+.inv-num{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#374151}
+.inv-party{font-weight:500;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inv-date{font-size:12px;color:#6b7280}
+.inv-amount{font-family:'JetBrains Mono',monospace;font-weight:700;color:#111827;text-align:right}
+.text-right{text-align:right}
+
+/* Badges */
+.inv-badge{
+  display:inline-flex;align-items:center;
+  padding:3px 8px;border-radius:5px;
+  font-size:11px;font-weight:700;
+}
+.badge-sale{background:#d1fae5;color:#065f46}
+.badge-pur{background:#dbeafe;color:#1e40af}
+.badge-ok{background:#d1fae5;color:#065f46}
+.badge-warn{background:#fef3c7;color:#92400e}
+.badge-bad{background:#fee2e2;color:#991b1b}
+
+/* ── Empty State ─────────────────────────────────────────────────────────── */
+.empty-state{
+  text-align:center;padding:40px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.empty-icon{
+  width:60px;height:60px;border-radius:12px;background:#f3f4f6;
+  display:flex;align-items:center;justify-content:center;color:#9ca3af;margin-bottom:4px;
+}
+.empty-title{font-size:16px;font-weight:700;color:#111827}
+.empty-sub{font-size:14px;color:#6b7280;margin-bottom:4px}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media(max-width:1080px){
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .mid-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:720px){
+  .page{padding:20px 16px 110px}
+  .topbar{padding:0 16px}
+  .topbar-center{display:none}
+  .hero-strip{flex-direction:column;gap:16px}
+  .hero-right{align-self:stretch}
+  .health-card{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;text-align:left}
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .mid-grid{grid-template-columns:1fr}
+  .inv-row{grid-template-columns:1fr auto;gap:8px}
+  .inv-header{display:none}
+  .inv-data-row{grid-template-columns:1fr auto}
+  .inv-party,.inv-date,.inv-badge.badge-ok,.inv-badge.badge-warn,.inv-badge.badge-bad,.inv-badge.badge-sale,.inv-badge.badge-pur{display:none}
 }
 `;

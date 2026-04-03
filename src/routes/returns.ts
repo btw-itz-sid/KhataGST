@@ -105,4 +105,132 @@ export async function returnRoutes(app: FastifyInstance) {
       data: result.rows,
     });
   });
+
+  // POST /api/v1/returns/gstr1/:id/recompute
+  // Agar invoices updated ho gayi ho toh return recompute karo
+  app.post("/gstr1/:id/recompute", {
+    preHandler: [app.authenticate],
+  }, async (request, reply) => {
+    const { userId } = request.user as any;
+    const { id } = request.params as any;
+
+    try {
+      const { query: dbQuery } = await import("../lib/db.js");
+
+      // Return record fetch karo aur verify karo ki user ke paas access hai
+      const returnResult = await dbQuery(
+        `SELECT r.* FROM gst_returns r
+         JOIN businesses b ON r.business_id = b.id
+         WHERE r.id = $1 AND r.return_type = 'GSTR-1' AND b.owner_id = $2`,
+        [id, userId]
+      );
+
+      if (returnResult.rows.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Return nahi mila ya unauthorized" },
+        });
+      }
+
+      const returnRecord = returnResult.rows[0];
+
+      // Recompute GSTR-1
+      const recomputedGSTR1 = await computeGSTR1(
+        returnRecord.business_id,
+        returnRecord.tax_period
+      );
+
+      // Update return record with new computation
+      await dbQuery(
+        `UPDATE gst_returns
+         SET status = 'computed',
+             summary_json = $1,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [JSON.stringify(recomputedGSTR1), id]
+      );
+
+      return reply.send({
+        success: true,
+        message: "GSTR-1 recomputed successfully",
+        gstr1: {
+          ...recomputedGSTR1,
+          summary_readable: {
+            period: returnRecord.tax_period,
+            due_date: recomputedGSTR1.due_date,
+            status: "computed",
+            total_invoices: recomputedGSTR1.totals.total_invoices,
+            taxable_value: formatPaise(recomputedGSTR1.totals.taxable_value),
+            cgst: formatPaise(recomputedGSTR1.totals.cgst),
+            sgst: formatPaise(recomputedGSTR1.totals.sgst),
+            igst: formatPaise(recomputedGSTR1.totals.igst),
+            total_tax: formatPaise(recomputedGSTR1.totals.total_tax),
+            grand_total: formatPaise(recomputedGSTR1.totals.grand_total),
+          },
+        },
+      });
+    } catch (err: any) {
+      return reply.status(500).send({
+        success: false,
+        error: { code: "SERVER_ERROR", message: err?.message ?? "Recompute fail ho gaya" },
+      });
+    }
+  });
+
+  // POST /api/v1/returns/gstr3b/:id/recompute
+  app.post("/gstr3b/:id/recompute", {
+    preHandler: [app.authenticate],
+  }, async (request, reply) => {
+    const { userId } = request.user as any;
+    const { id } = request.params as any;
+
+    try {
+      const { query: dbQuery } = await import("../lib/db.js");
+      const { computeGSTR3B } = await import("../services/gstr3bService.js");
+
+      // Return record fetch karo
+      const returnResult = await dbQuery(
+        `SELECT r.* FROM gst_returns r
+         JOIN businesses b ON r.business_id = b.id
+         WHERE r.id = $1 AND r.return_type = 'GSTR-3B' AND b.owner_id = $2`,
+        [id, userId]
+      );
+
+      if (returnResult.rows.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Return nahi mila ya unauthorized" },
+        });
+      }
+
+      const returnRecord = returnResult.rows[0];
+
+      // Recompute GSTR-3B
+      const recomputedGSTR3B = await computeGSTR3B(
+        returnRecord.business_id,
+        returnRecord.tax_period
+      );
+
+      // Update return record
+      await dbQuery(
+        `UPDATE gst_returns
+         SET status = 'computed',
+             summary_json = $1,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [JSON.stringify(recomputedGSTR3B), id]
+      );
+
+      return reply.send({
+        success: true,
+        message: "GSTR-3B recomputed successfully",
+        gstr3b: recomputedGSTR3B,
+      });
+    } catch (err: any) {
+      return reply.status(500).send({
+        success: false,
+        error: { code: "SERVER_ERROR", message: err?.message ?? "Recompute fail ho gaya" },
+      });
+    }
+  });
 }

@@ -37,12 +37,62 @@ server.register(rateLimit, {
   max: 100,         // 100 requests
   timeWindow: "1 minute",
 });
+
+// ── Swagger API Documentation ───────────────────────────────
+import swagger from "@fastify/swagger";
+import swaggerUI from "@fastify/swagger-ui";
+
+server.register(swagger, {
+  openapi: {
+    openapi: "3.0.0",
+    info: {
+      title: "KhataGST API",
+      description: "AI-powered GST filing SaaS for Indian MSMEs",
+      version: "1.0.0",
+      contact: {
+        name: "KhataGST Support",
+        email: "support@khatagst.com",
+      },
+    },
+    servers: [
+      {
+        url: "http://localhost:3000",
+        description: "Development server",
+      },
+      {
+        url: "https://api.khatagst.com",
+        description: "Production server",
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "JWT token in Authorization header",
+        },
+      },
+    },
+  },
+});
+
+server.register(swaggerUI, {
+  routePrefix: "/api/docs",
+  uiConfig: {
+    docExpansion: "list",
+    deepLinking: false,
+  },
+});
+
 // Routes register karo
 import { authRoutes } from "./routes/auth.js";
 import { partyRoutes } from "./routes/parties.js";
 import { returnRoutes } from "./routes/returns.js";
 import { scanRoutes } from "./routes/scans.js";
 import { exportRoutes } from "./routes/export.js";
+import { adminRoutes } from "./routes/admin.js";
+import { gstRatesRoutes } from "./routes/gstRates.js";
 import multipart from "@fastify/multipart";
 server.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
@@ -51,6 +101,8 @@ server.register(partyRoutes, { prefix: "/api/v1/parties" });
 server.register(returnRoutes, { prefix: "/api/v1/returns" });
 server.register(scanRoutes, { prefix: "/api/v1/scans" });
 server.register(exportRoutes, { prefix: "/api/v1/export" });
+server.register(adminRoutes, { prefix: "/api/v1/admin" });
+server.register(gstRatesRoutes, { prefix: "/api/v1/gst-rates" });
 import { businessRoutes } from "./routes/businesses.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 
@@ -73,6 +125,7 @@ const start = async () => {
     await server.listen({ port, host: "0.0.0.0" });
     console.log(`🚀 KhataGST server running on port ${port}`);
     console.log(`🔗 Health check: http://localhost:${port}/health`);
+    console.log(`📚 API Docs: http://localhost:${port}/api/docs`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

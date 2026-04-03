@@ -198,35 +198,190 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/v1/invoices
+  // Advanced filtering support: party_name, from_date, to_date, min_amount, max_amount, gst_rate, invoice_type
   fastify.get("/", async (request, reply) => {
     const userId = (request.user as any).userId;
-    const { business_id, page = 1, limit = 20 } = request.query as any;
-    const offset = (Number(page) - 1) * Number(limit);
+    const {
+      business_id,
+      party_name,
+      from_date,
+      to_date,
+      min_amount,
+      max_amount,
+      gst_rate,
+      invoice_type,
+      page = 1,
+      limit = 20,
+    } = request.query as any;
 
-    let queryText = `
-      SELECT i.*, p.name AS party_name, p.gstin AS party_gstin FROM invoices i
-      JOIN businesses b ON i.business_id = b.id
-      LEFT JOIN parties p ON i.party_id = p.id
-      WHERE b.owner_id = $1
-      ORDER BY i.invoice_date DESC
-      LIMIT $2 OFFSET $3
-    `;
-    let params: any[] = [userId, limit, offset];
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const pageLimit = Math.min(Math.max(1, parseInt(limit) || 20), 100);
+    const offset = (pageNum - 1) * pageLimit;
 
-    if (business_id) {
-      queryText = `
-        SELECT i.*, p.name AS party_name, p.gstin AS party_gstin FROM invoices i
+    try {
+      let queryText = `
+        SELECT i.*, p.name AS party_name, p.gstin AS party_gstin 
+        FROM invoices i
         JOIN businesses b ON i.business_id = b.id
         LEFT JOIN parties p ON i.party_id = p.id
-        WHERE b.owner_id = $1 AND i.business_id = $4
-        ORDER BY i.invoice_date DESC
-        LIMIT $2 OFFSET $3
+        WHERE b.owner_id = $1 AND i.is_cancelled = FALSE
       `;
-      params = [userId, limit, offset, business_id];
-    }
+      const params: any[] = [userId];
+      let paramCount = 1;
 
-    const result = await db.query(queryText, params);
-    reply.send({ success: true, invoices: result.rows, page: +page, limit: +limit });
+      // Business filter
+      if (business_id) {
+        paramCount++;
+        queryText += ` AND i.business_id = $${paramCount}`;
+        params.push(business_id);
+      }
+
+      // Party name search (case-insensitive)
+      if (party_name && party_name.trim()) {
+        paramCount++;
+        queryText += ` AND p.name ILIKE $${paramCount}`;
+        params.push(`%${party_name.trim()}%`);
+      }
+
+      // Date range filtering
+      if (from_date) {
+        paramCount++;
+        queryText += ` AND i.invoice_date >= $${paramCount}`;
+        params.push(from_date);
+      }
+
+      if (to_date) {
+        paramCount++;
+        queryText += ` AND i.invoice_date <= $${paramCount}`;
+        params.push(to_date);
+      }
+
+      // Amount range filtering (in paise)
+      if (min_amount !== undefined) {
+        paramCount++;
+        const minPaise = Math.round(parseFloat(min_amount) * 100);
+        queryText += ` AND i.total_amount >= $${paramCount}`;
+        params.push(minPaise);
+      }
+
+      if (max_amount !== undefined) {
+        paramCount++;
+        const maxPaise = Math.round(parseFloat(max_amount) * 100);
+        queryText += ` AND i.total_amount <= $${paramCount}`;
+        params.push(maxPaise);
+      }
+
+      // GST rate filtering (check invoice_items)
+      if (gst_rate !== undefined) {
+        paramCount++;
+        queryText += `
+          AND i.id IN (
+            SELECT DISTINCT invoice_id FROM invoice_items
+            WHERE CAST(gst_rate AS NUMERIC) = $${paramCount}
+          )
+        `;
+        params.push(parseFloat(gst_rate));
+      }
+
+      // Invoice type filtering
+      if (invoice_type && ["sale", "purchase", "credit_note", "debit_note"].includes(invoice_type)) {
+        paramCount++;
+        queryText += ` AND i.invoice_type = $${paramCount}`;
+        params.push(invoice_type);
+      }
+
+      // Sorting and pagination
+      queryText += ` ORDER BY i.invoice_date DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(pageLimit);
+      params.push(offset);
+
+      const result = await db.query(queryText, params);
+
+      // Total count for pagination
+      let countQueryText = `
+        SELECT COUNT(i.id) as count
+        FROM invoices i
+        JOIN businesses b ON i.business_id = b.id
+        LEFT JOIN parties p ON i.party_id = p.id
+        WHERE b.owner_id = $1 AND i.is_cancelled = FALSE
+      `;
+      const countParams: any[] = [userId];
+      let countParamCount = 1;
+
+      if (business_id) {
+        countParamCount++;
+        countQueryText += ` AND i.business_id = $${countParamCount}`;
+        countParams.push(business_id);
+      }
+
+      if (party_name && party_name.trim()) {
+        countParamCount++;
+        countQueryText += ` AND p.name ILIKE $${countParamCount}`;
+        countParams.push(`%${party_name.trim()}%`);
+      }
+
+      if (from_date) {
+        countParamCount++;
+        countQueryText += ` AND i.invoice_date >= $${countParamCount}`;
+        countParams.push(from_date);
+      }
+
+      if (to_date) {
+        countParamCount++;
+        countQueryText += ` AND i.invoice_date <= $${countParamCount}`;
+        countParams.push(to_date);
+      }
+
+      if (min_amount !== undefined) {
+        countParamCount++;
+        const minPaise = Math.round(parseFloat(min_amount) * 100);
+        countQueryText += ` AND i.total_amount >= $${countParamCount}`;
+        countParams.push(minPaise);
+      }
+
+      if (max_amount !== undefined) {
+        countParamCount++;
+        const maxPaise = Math.round(parseFloat(max_amount) * 100);
+        countQueryText += ` AND i.total_amount <= $${countParamCount}`;
+        countParams.push(maxPaise);
+      }
+
+      if (gst_rate !== undefined) {
+        countParamCount++;
+        countQueryText += `
+          AND i.id IN (
+            SELECT DISTINCT invoice_id FROM invoice_items
+            WHERE CAST(gst_rate AS NUMERIC) = $${countParamCount}
+          )
+        `;
+        countParams.push(parseFloat(gst_rate));
+      }
+
+      if (invoice_type && ["sale", "purchase", "credit_note", "debit_note"].includes(invoice_type)) {
+        countParamCount++;
+        countQueryText += ` AND i.invoice_type = $${countParamCount}`;
+        countParams.push(invoice_type);
+      }
+
+      const countResult = await db.query(countQueryText, countParams);
+      const total = parseInt(countResult.rows[0].count, 10);
+
+      reply.send({
+        success: true,
+        invoices: result.rows,
+        pagination: {
+          page: pageNum,
+          limit: pageLimit,
+          total,
+          pages: Math.ceil(total / pageLimit),
+        },
+      });
+    } catch (err: any) {
+      reply.status(500).send({
+        success: false,
+        error: { code: "SERVER_ERROR", message: err.message },
+      });
+    }
   });
 
   // GET /api/v1/invoices/:id
@@ -294,5 +449,115 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: "Invoice nahi mila ya already cancelled" });
     }
     reply.send({ success: true, message: "Invoice cancel ho gaya", id });
+  });
+
+  // POST /api/v1/invoices/:id/duplicate
+  // Pehle se likhe hue invoice ko duplicate karo (template ban jaaye)
+  fastify.post("/:id/duplicate", async (request, reply) => {
+    const userId = (request.user as any).userId;
+    const { id } = request.params as any;
+    const { new_invoice_number, new_invoice_date } = request.body as any;
+
+    try {
+      const client = await db.getClient();
+
+      try {
+        await client.query("BEGIN");
+
+        // Original invoice fetch karo
+        const originalResult = await client.query(
+          `SELECT i.* FROM invoices i
+           JOIN businesses b ON i.business_id = b.id
+           WHERE i.id = $1 AND b.owner_id = $2 AND i.is_cancelled = FALSE`,
+          [id, userId]
+        );
+
+        if (originalResult.rows.length === 0) {
+          return reply.status(404).send({ error: "Invoice nahi mila ya already cancelled" });
+        }
+
+        const original = originalResult.rows[0];
+
+        // Original ke items fetch karo
+        const itemsResult = await client.query(
+          "SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY id",
+          [id]
+        );
+
+        // New invoice number zaroori hai
+        if (!new_invoice_number || !new_invoice_number.toString().trim()) {
+          return reply.status(400).send({ error: "New invoice number zaroori hai" });
+        }
+
+        const normalizedNewNumber = new_invoice_number.toString().trim();
+        const newInvoiceDate = new_invoice_date || original.invoice_date;
+
+        // Check karo agar naya invoice number pehle se exist karta hai
+        const existingCheck = await client.query(
+          `SELECT id FROM invoices 
+           WHERE business_id = $1 AND invoice_number = $2 AND invoice_type = $3 AND is_cancelled = FALSE`,
+          [original.business_id, normalizedNewNumber, original.invoice_type]
+        );
+
+        if (existingCheck.rows.length > 0) {
+          return reply.status(409).send({ error: "Ye invoice number pehle se exist karta hai" });
+        }
+
+        // Naya invoice create karo
+        const newInvoiceResult = await client.query(
+          `INSERT INTO invoices
+           (business_id, party_id, invoice_type, invoice_number, invoice_date, due_date,
+            taxable_value, cgst_amount, sgst_amount, igst_amount, total_amount, is_igst, reverse_charge, notes, source)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+           RETURNING *`,
+          [
+            original.business_id, original.party_id, original.invoice_type,
+            normalizedNewNumber, newInvoiceDate, original.due_date,
+            original.taxable_value, original.cgst_amount, original.sgst_amount,
+            original.igst_amount, original.total_amount, original.is_igst,
+            original.reverse_charge, original.notes, original.source,
+          ]
+        );
+
+        const newInvoice = newInvoiceResult.rows[0];
+
+        // Original ke items ko naye invoice ke liye copy karo
+        const newItems = [];
+        for (const item of itemsResult.rows) {
+          const newItemResult = await client.query(
+            `INSERT INTO invoice_items
+             (invoice_id, description, hsn_sac, quantity, unit_price, gst_rate,
+              taxable_value, cgst_amount, sgst_amount, igst_amount)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+             RETURNING *`,
+            [
+              newInvoice.id, item.description, item.hsn_sac, item.quantity,
+              item.unit_price, item.gst_rate, item.taxable_value,
+              item.cgst_amount, item.sgst_amount, item.igst_amount,
+            ]
+          );
+          newItems.push(newItemResult.rows[0]);
+        }
+
+        await client.query("COMMIT");
+
+        reply.status(201).send({
+          success: true,
+          message: "Invoice duplicate ho gaya",
+          invoice: newInvoice,
+          items: newItems,
+        });
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+    } catch (err: any) {
+      reply.status(500).send({
+        success: false,
+        error: { code: "SERVER_ERROR", message: err.message },
+      });
+    }
   });
 }
