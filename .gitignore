@@ -3,3 +3,13 @@ node_modules/
 dist/
 *.log
 dev-otp.log
+
+# Uploaded bill scan images — yahan real user files hoti hain
+uploads/
+
+# Test images
+test-images/
+
+# OS files
+.DS_Store
+Thumbs.db

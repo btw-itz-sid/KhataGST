@@ -189,6 +189,13 @@ export async function exportGSTR1Excel(
   return Buffer.from(buffer);
 }
 
+// ── CSV helper — har value ko quote karo (comma/newline safe) ──
+function csvCell(value: string | number | null | undefined): string {
+  const str = String(value ?? "");
+  // Internal double-quotes ko escape karo, phir puri value quote mein wrap karo
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 // ── CSV export — simple, sab kaam aata hai ───────────────────
 export async function exportInvoicesCSV(
   businessId: string,
@@ -221,23 +228,24 @@ export async function exportInvoicesCSV(
     [businessId, startDate, endDate]
   );
 
-  // CSV banao
+  // ✅ Fix: Har column value ko csvCell() se quote karo
+  // Company names with commas (eg "ABC, Ltd") CSV corrupt nahi karenge
   const headers = [
     "Invoice No", "Date", "Type", "Party Name", "Party GSTIN",
-    "Taxable Value", "CGST", "SGST", "IGST", "Total"
-  ];
+    "Taxable Value (INR)", "CGST (INR)", "SGST (INR)", "IGST (INR)", "Total (INR)"
+  ].map(csvCell);
 
   const rows = result.rows.map(inv => [
-    inv.invoice_number,
-    new Date(inv.invoice_date).toLocaleDateString("en-IN"),
-    inv.invoice_type,
-    inv.party_name ?? "Unregistered",
-    inv.party_gstin ?? "",
-    (Number(inv.taxable_value) / 100).toFixed(2),
-    (Number(inv.cgst_amount) / 100).toFixed(2),
-    (Number(inv.sgst_amount) / 100).toFixed(2),
-    (Number(inv.igst_amount) / 100).toFixed(2),
-    (Number(inv.total_amount) / 100).toFixed(2),
+    csvCell(inv.invoice_number),
+    csvCell(new Date(inv.invoice_date).toLocaleDateString("en-IN")),
+    csvCell(inv.invoice_type),
+    csvCell(inv.party_name ?? "Unregistered"),
+    csvCell(inv.party_gstin ?? ""),
+    csvCell((Number(inv.taxable_value) / 100).toFixed(2)),
+    csvCell((Number(inv.cgst_amount) / 100).toFixed(2)),
+    csvCell((Number(inv.sgst_amount) / 100).toFixed(2)),
+    csvCell((Number(inv.igst_amount) / 100).toFixed(2)),
+    csvCell((Number(inv.total_amount) / 100).toFixed(2)),
   ]);
 
   const csv = [

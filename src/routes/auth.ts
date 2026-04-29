@@ -1,15 +1,20 @@
+// src/routes/auth.ts
+// Auth routes — OTP send/verify aur /me endpoint
+// OTP ab in-memory Map ki jagah DB mein store hota hai (restart-safe)
+// Brute force protection: max 5 galat attempts, phir naya OTP maango
+
 import { FastifyInstance } from "fastify";
 import * as path from "path";
 import * as fs from "fs";
 import { z } from "zod";
 import { query } from "../lib/db.js";
 
-const otpStore = new Map<string, { otp: string; expires: number }>();
-
 const DEV_OTP_LOG_PATH = path.resolve(
   process.cwd(),
   process.env.DEV_OTP_LOG_PATH || "dev-otp.log"
 );
+
+const MAX_OTP_ATTEMPTS = 5; // 5 galat tries ke baad OTP invalidate
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -18,6 +23,68 @@ function generateOTP(): string {
 function isValidPhone(phone: string): boolean {
   return /^[6-9]\d{9}$/.test(phone);
 }
+
+// ── OTP DB helpers ────────────────────────────────────────────────────────────
+
+async function saveOtpToDB(phone: string, otp: string): Promise<void> {
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+  // Purane OTP delete karo pehle
+  await query("DELETE FROM otp_verifications WHERE phone = $1", [phone]);
+
+  // Naya OTP insert karo
+  await query(
+    `INSERT INTO otp_verifications (phone, otp_hash, otp, expires_at)
+     VALUES ($1, $2, $3, $4)`,
+    [phone, otp, otp, expiresAt.toISOString()]
+  );
+}
+
+async function verifyOtpFromDB(
+  phone: string,
+  otp: string
+): Promise<{ valid: boolean; reason?: string }> {
+  const result = await query(
+    `SELECT * FROM otp_verifications
+     WHERE phone = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [phone]
+  );
+
+  if (result.rows.length === 0) {
+    return { valid: false, reason: "OTP_NOT_FOUND" };
+  }
+
+  const record = result.rows[0];
+
+  // Expiry check
+  if (new Date() > new Date(record.expires_at)) {
+    await query("DELETE FROM otp_verifications WHERE phone = $1", [phone]);
+    return { valid: false, reason: "OTP_EXPIRED" };
+  }
+
+  // Brute force check — max 5 attempts
+  if (record.attempts >= MAX_OTP_ATTEMPTS) {
+    await query("DELETE FROM otp_verifications WHERE phone = $1", [phone]);
+    return { valid: false, reason: "TOO_MANY_ATTEMPTS" };
+  }
+
+  // Wrong OTP — increment attempt count
+  if (record.otp !== otp) {
+    await query(
+      "UPDATE otp_verifications SET attempts = attempts + 1 WHERE id = $1",
+      [record.id]
+    );
+    return { valid: false, reason: "WRONG_OTP" };
+  }
+
+  // Sahi OTP — delete record (single use)
+  await query("DELETE FROM otp_verifications WHERE phone = $1", [phone]);
+  return { valid: true };
+}
+
+// ── SMS send karo ─────────────────────────────────────────────────────────────
 
 async function sendOTP(phone: string, otp: string): Promise<void> {
   // Development — skip real SMS, just log to file
@@ -65,7 +132,10 @@ async function sendOTP(phone: string, otp: string): Promise<void> {
   console.log(`OTP sent to ${phone} via Fast2SMS — request_id: ${data.request_id}`);
 }
 
+// ── Auth Routes ───────────────────────────────────────────────────────────────
+
 export async function authRoutes(app: FastifyInstance) {
+  // POST /api/v1/auth/send-otp
   app.post("/send-otp", async (request, reply) => {
     const schema = z.object({
       phone: z.string().min(10).max(10),
@@ -86,14 +156,26 @@ export async function authRoutes(app: FastifyInstance) {
         success: false,
         error: {
           code: "INVALID_PHONE",
-          message: "Valid Indian mobile number do",
+          message: "Valid Indian mobile number do (6-9 se shuru hona chahiye)",
         },
       });
     }
 
     const otp = generateOTP();
-    const expires = Date.now() + 10 * 60 * 1000;
-    otpStore.set(phone, { otp, expires });
+
+    try {
+      // OTP DB mein save karo (server restart-safe)
+      await saveOtpToDB(phone, otp);
+    } catch (dbErr) {
+      console.error("OTP DB save failed:", dbErr);
+      return reply.status(500).send({
+        success: false,
+        error: {
+          code: "OTP_SAVE_FAILED",
+          message: "OTP generate karne mein dikkat, thodi der baad try karo",
+        },
+      });
+    }
 
     try {
       await sendOTP(phone, otp);
@@ -117,6 +199,7 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
+  // POST /api/v1/auth/verify-otp
   app.post("/verify-otp", async (request, reply) => {
     const schema = z.object({
       phone: z.string().min(10).max(10),
@@ -133,32 +216,30 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const { phone, otp, name } = parsed.data;
-    const stored = otpStore.get(phone);
 
-    if (!stored) {
-      return reply.status(400).send({
+    // DB se OTP verify karo (brute force protection included)
+    const verification = await verifyOtpFromDB(phone, otp);
+
+    if (!verification.valid) {
+      const messages: Record<string, string> = {
+        OTP_NOT_FOUND: "Pehle OTP maango",
+        OTP_EXPIRED: "OTP expire ho gaya, dobara maango",
+        WRONG_OTP: "OTP galat hai",
+        TOO_MANY_ATTEMPTS: "Bahut zyada galat attempts, naya OTP maango",
+      };
+
+      const httpStatus = verification.reason === "TOO_MANY_ATTEMPTS" ? 429 : 400;
+
+      return reply.status(httpStatus).send({
         success: false,
-        error: { code: "OTP_NOT_FOUND", message: "Pehle OTP maango" },
+        error: {
+          code: verification.reason ?? "OTP_INVALID",
+          message: messages[verification.reason ?? ""] ?? "OTP verify nahi ho paya",
+        },
       });
     }
 
-    if (Date.now() > stored.expires) {
-      otpStore.delete(phone);
-      return reply.status(400).send({
-        success: false,
-        error: { code: "OTP_EXPIRED", message: "OTP expire ho gaya, dobara maango" },
-      });
-    }
-
-    if (stored.otp !== otp) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: "WRONG_OTP", message: "OTP galat hai" },
-      });
-    }
-
-    otpStore.delete(phone);
-
+    // OTP sahi hai — user create/fetch karo
     let user;
     let isNewUser = false;
 
@@ -178,15 +259,12 @@ export async function authRoutes(app: FastifyInstance) {
         user = created.rows[0];
         console.log(`Naya user bana: ${phone}`);
       }
-    } catch {
-      console.warn("DB not connected, using mock user");
-      isNewUser = true;
-      user = {
-        id: "00000000-0000-4000-8000-000000000000",
-        phone,
-        name: name ?? "Test User",
-        plan: "free",
-      };
+    } catch (dbErr) {
+      console.error("User create/fetch failed:", dbErr);
+      return reply.status(500).send({
+        success: false,
+        error: { code: "DB_ERROR", message: "User data load nahi ho paya" },
+      });
     }
 
     const token = app.jwt.sign(
@@ -221,6 +299,7 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
+  // GET /api/v1/auth/me
   app.get(
     "/me",
     {
@@ -246,10 +325,11 @@ export async function authRoutes(app: FastifyInstance) {
           success: true,
           data: result.rows[0],
         });
-      } catch {
-        return reply.send({
-          success: true,
-          data: { userId, message: "DB connected nahi, mock data" },
+      } catch (err) {
+        console.error("/me DB error:", err);
+        return reply.status(500).send({
+          success: false,
+          error: { code: "DB_ERROR", message: "User data load nahi ho paya" },
         });
       }
     }

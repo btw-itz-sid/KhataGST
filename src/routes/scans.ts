@@ -1,3 +1,8 @@
+// src/routes/scans.ts
+// Bill scan routes — image upload, AI extraction, retry
+// Fix: Images ab permanent uploads/ folder mein save hoti hain (tmp ki jagah)
+// Fix: Scan GET list mein business ownership check add kiya gaya
+
 import { FastifyInstance } from "fastify";
 import { query } from "../lib/db.js";
 import {
@@ -8,8 +13,32 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
+// ── Uploads directory — permanent storage (Railway volume ya local) ──────────
+// /tmp ke badle uploads/ folder use karo — retry ke liye file milti rahegi
+const UPLOADS_DIR = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.resolve(process.cwd(), "uploads");
+
+// Server start hone par directory create karo
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  console.log(`📁 Uploads directory created: ${UPLOADS_DIR}`);
+}
+
+// ── Allowed file types ───────────────────────────────────────────────────────
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+
+const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
+
 export async function scanRoutes(app: FastifyInstance) {
 
+  // POST /api/v1/scans — bill image upload karo aur AI se scan karwao
   app.post("/", { preHandler: [app.authenticate] }, async (request, reply) => {
     const { userId } = request.user as any;
     const parts = request.parts();
@@ -17,10 +46,12 @@ export async function scanRoutes(app: FastifyInstance) {
     let business_id = "";
     let filename = "scan.jpg";
     let fileBuffer: Buffer | null = null;
+    let detectedMimeType = "";
 
     for await (const part of parts) {
       if (part.type === "file" && part.fieldname === "bill") {
         filename = part.filename || filename;
+        detectedMimeType = part.mimetype || "";
         fileBuffer = await part.toBuffer();
         continue;
       }
@@ -33,7 +64,7 @@ export async function scanRoutes(app: FastifyInstance) {
     if (!fileBuffer) {
       return reply.status(400).send({
         success: false,
-        error: { code: "NO_FILE", message: "Image file bhejo" },
+        error: { code: "NO_FILE", message: "Image file bhejo (jpg/png/webp/pdf)" },
       });
     }
 
@@ -44,18 +75,47 @@ export async function scanRoutes(app: FastifyInstance) {
       });
     }
 
-    const ext = path.extname(filename) || ".jpg";
-    const tempPath = path.join(os.tmpdir(), `scan_${Date.now()}${ext}`);
-    fs.writeFileSync(tempPath, fileBuffer);
+    // ✅ File type validation
+    const ext = path.extname(filename).toLowerCase() || ".jpg";
+    if (!ALLOWED_EXTENSIONS.has(ext) && !ALLOWED_MIME_TYPES.has(detectedMimeType)) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_FILE_TYPE",
+          message: "Sirf JPG, PNG, WEBP ya PDF upload karo",
+        },
+      });
+    }
+
+    // ✅ Fix: Permanent uploads/ folder mein save karo (not /tmp)
+    // Retry ke waqt file milegi kyunki delete nahi hogi
+    const safeFilename = `scan_${Date.now()}_${userId.slice(0, 8)}${ext}`;
+    const filePath = path.join(UPLOADS_DIR, safeFilename);
+    fs.writeFileSync(filePath, fileBuffer);
+
+    // Business ownership verify karo
+    const bizCheck = await query(
+      "SELECT id FROM businesses WHERE id = $1 AND owner_id = $2",
+      [business_id, userId]
+    );
+    if (bizCheck.rows.length === 0) {
+      // File cleanup karo
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Is business ka access nahi hai" },
+      });
+    }
 
     const scanRecord = await query(
-      `INSERT INTO bill_scans (business_id, uploaded_by, file_url, status) VALUES ($1, $2, $3, 'processing') RETURNING id`,
-      [business_id, userId, tempPath]
+      `INSERT INTO bill_scans (business_id, uploaded_by, file_url, status)
+       VALUES ($1, $2, $3, 'processing') RETURNING id`,
+      [business_id, userId, filePath]
     );
     const scanId = scanRecord.rows[0].id;
 
     try {
-      const result = await scanBillWithAI(tempPath);
+      const result = await scanBillWithAI(filePath);
 
       await query(
         `UPDATE bill_scans
@@ -73,8 +133,6 @@ export async function scanRoutes(app: FastifyInstance) {
         ]
       );
 
-      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
       return reply.send({
         success: true,
         scan: {
@@ -90,11 +148,9 @@ export async function scanRoutes(app: FastifyInstance) {
       });
 
     } catch (err: any) {
-      // Log exact error for debugging
       console.error("Scan failed — Gemini error:", err?.message ?? err);
 
-      // Always return fallback instead of 500
-      // User can fill fields manually on the review form
+      // Always fallback — user manually fill kar sakta hai
       const fallback = createManualReviewFallback(
         err?.message ?? "AI scan failed. Fill invoice details manually."
       );
@@ -119,8 +175,6 @@ export async function scanRoutes(app: FastifyInstance) {
         console.error("DB update failed after scan error:", dbErr?.message);
       }
 
-      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
       return reply.send({
         success: true,
         scan: {
@@ -137,9 +191,18 @@ export async function scanRoutes(app: FastifyInstance) {
     }
   });
 
+  // GET /api/v1/scans/:id — ek scan ka detail fetch karo
   app.get("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { userId } = request.user as any;
     const { id } = request.params as { id: string };
-    const result = await query(`SELECT * FROM bill_scans WHERE id = $1`, [id]);
+
+    // ✅ Ownership check — sirf apna scan dekho
+    const result = await query(
+      `SELECT s.* FROM bill_scans s
+       JOIN businesses b ON s.business_id = b.id
+       WHERE s.id = $1 AND b.owner_id = $2`,
+      [id, userId]
+    );
     if (result.rows.length === 0) {
       return reply.status(404).send({
         success: false,
@@ -149,14 +212,12 @@ export async function scanRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: result.rows[0] });
   });
 
-  // POST /api/v1/scans/:id/retry
-  // Agar scan pehle fail hua ho toh retry karo
+  // POST /api/v1/scans/:id/retry — pehle fail hua scan dobara try karo
   app.post("/:id/retry", { preHandler: [app.authenticate] }, async (request, reply) => {
     const { userId } = request.user as any;
     const { id } = request.params as { id: string };
 
     try {
-      // Scan record fetch karo
       const scanResult = await query(
         `SELECT s.* FROM bill_scans s
          JOIN businesses b ON s.business_id = b.id
@@ -174,21 +235,22 @@ export async function scanRoutes(app: FastifyInstance) {
       const scan = scanResult.rows[0];
       const filePath = scan.file_url;
 
-      // Check karo agar file still exists
-      if (!fs.existsSync(filePath)) {
+      // ✅ Fix: File permanent uploads/ mein hai, isliye milegi
+      if (!filePath || !fs.existsSync(filePath)) {
         return reply.status(410).send({
           success: false,
-          error: { code: "FILE_MISSING", message: "Original image file nahi mila" },
+          error: {
+            code: "FILE_MISSING",
+            message: "Original image file nahi mila. Naya scan karo.",
+          },
         });
       }
 
-      // Status ko 'processing' set karo
       await query(
         `UPDATE bill_scans SET status = 'processing' WHERE id = $1`,
         [id]
       );
 
-      // AI se retry karo
       try {
         const result = await scanBillWithAI(filePath);
 
@@ -210,7 +272,7 @@ export async function scanRoutes(app: FastifyInstance) {
 
         return reply.send({
           success: true,
-          message: "Scan retry successfully ho gaya",
+          message: "Scan retry ho gaya",
           scan: {
             id,
             status: "done",
@@ -223,7 +285,6 @@ export async function scanRoutes(app: FastifyInstance) {
       } catch (err: any) {
         console.error("Scan retry failed:", err?.message);
 
-        // Fallback par set karo
         const fallback = createManualReviewFallback(
           err?.message ?? "Retry failed. Fill manually."
         );
@@ -265,16 +326,35 @@ export async function scanRoutes(app: FastifyInstance) {
     }
   });
 
+  // GET /api/v1/scans — business ke sabhi scans ki list
   app.get("/", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { userId } = request.user as any;
     const { business_id } = request.query as any;
+
     if (!business_id) {
       return reply.status(400).send({
         success: false,
         error: { code: "INVALID_INPUT", message: "business_id do" },
       });
     }
+
+    // ✅ Fix: Business ownership verify karo pehle
+    const bizCheck = await query(
+      "SELECT id FROM businesses WHERE id = $1 AND owner_id = $2",
+      [business_id, userId]
+    );
+    if (bizCheck.rows.length === 0) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Is business ka access nahi hai" },
+      });
+    }
+
     const result = await query(
-      `SELECT id, file_url, status, confidence, created_at FROM bill_scans WHERE business_id = $1 ORDER BY created_at DESC`,
+      `SELECT id, status, confidence, created_at, completed_at
+       FROM bill_scans
+       WHERE business_id = $1
+       ORDER BY created_at DESC`,
       [business_id]
     );
     return reply.send({ success: true, data: result.rows });

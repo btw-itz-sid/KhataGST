@@ -374,12 +374,12 @@ export default function App() {
 
       {/* ── GST Rate Master ────────────────────────────────────────– */}
       {route === "gst-rates" && (
-        <GSTRates />
+        <GSTRates navigate={navigate} />
       )}
 
       {/* ── Admin Dashboard ────────────────────────────────────────– */}
       {route === "admin" && (
-        <Admin />
+        <Admin navigate={navigate} />
       )}
 
       {/* ── Pricing Plans ─────────────────────────────────────────── */}

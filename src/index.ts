@@ -14,7 +14,12 @@ const server = Fastify({
 
 // ── Plugins register karo ────────────────────────────────────
 server.register(cors, {
-  origin: true, // development mein sab allow
+  // Production mein specific frontend URL allow karo
+  // Development mein sab allow karo (local testing ke liye)
+  origin: process.env.NODE_ENV === "production"
+    ? (process.env.FRONTEND_URL || "https://app.khatagst.com")
+    : true,
+  credentials: true,
 });
 
 server.register(jwt, {
@@ -95,6 +100,17 @@ import { adminRoutes } from "./routes/admin.js";
 import { gstRatesRoutes } from "./routes/gstRates.js";
 import multipart from "@fastify/multipart";
 server.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
+
+// ── Uploads directory ensure karo ──────────────────────────────────────────
+import * as fs from "fs";
+import * as path from "path";
+const uploadsDir = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.resolve(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log(`📁 Uploads directory ready: ${uploadsDir}`);
+}
 
 server.register(authRoutes, { prefix: "/api/v1/auth" });
 server.register(partyRoutes, { prefix: "/api/v1/parties" });

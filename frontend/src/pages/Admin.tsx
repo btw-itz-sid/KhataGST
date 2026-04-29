@@ -61,7 +61,8 @@ interface Return {
   owner_name: string;
 }
 
-export default function Admin() {
+// navigate prop add kiya — back button ke liye
+export default function Admin({ navigate }: { navigate?: (route: any) => void }) {
   const token = getToken();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -191,10 +192,24 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-6">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-slate-400">Platform ka poora overview dekho</p>
+      {/* Header with back button */}
+      <div className="max-w-7xl mx-auto mb-8 flex items-center gap-4">
+        {navigate && (
+          <button
+            onClick={() => navigate("dashboard")}
+            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex-shrink-0"
+            aria-label="Back to dashboard"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5"/>
+              <path d="m12 5-7 7 7 7"/>
+            </svg>
+          </button>
+        )}
+        <div>
+          <h1 className="text-4xl font-bold mb-1">Admin Dashboard</h1>
+          <p className="text-slate-400">Platform ka poora overview dekho</p>
+        </div>
       </div>
 
       {/* Error message */}
