@@ -98,6 +98,7 @@ import { scanRoutes } from "./routes/scans.js";
 import { exportRoutes } from "./routes/export.js";
 import { adminRoutes } from "./routes/admin.js";
 import { gstRatesRoutes } from "./routes/gstRates.js";
+import { paymentRoutes } from "./routes/payments.js";
 import multipart from "@fastify/multipart";
 server.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
@@ -119,6 +120,7 @@ server.register(scanRoutes, { prefix: "/api/v1/scans" });
 server.register(exportRoutes, { prefix: "/api/v1/export" });
 server.register(adminRoutes, { prefix: "/api/v1/admin" });
 server.register(gstRatesRoutes, { prefix: "/api/v1/gst-rates" });
+server.register(paymentRoutes, { prefix: "/api/v1/payments" });
 import { businessRoutes } from "./routes/businesses.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 

@@ -9,6 +9,7 @@ import {
   createManualReviewFallback,
   scanBillWithAI,
 } from "../services/billScanService.js";
+import { sendBillScanCompleteEmail } from "../services/emailService.js";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -133,6 +134,20 @@ export async function scanRoutes(app: FastifyInstance) {
         ]
       );
 
+      // Send scan completion email (non‑blocking)
+      if (business_id) {
+        // fetch business owner email and business name
+        query(`SELECT u.email, b.legal_name FROM users u JOIN businesses b ON b.owner_id = u.id WHERE b.id = $1`, [business_id])
+          .then((res) => {
+            const email = res.rows[0]?.email;
+            const legalName = res.rows[0]?.legal_name || "Business";
+            if (email) {
+              sendBillScanCompleteEmail(email, legalName, 1, 1).catch((e) => console.warn("Bill scan email failed:", e?.message));
+            }
+          })
+          .catch((e) => console.warn("Failed to fetch email for scan completion:", e?.message));
+      }
+
       return reply.send({
         success: true,
         scan: {
@@ -173,6 +188,19 @@ export async function scanRoutes(app: FastifyInstance) {
         );
       } catch (dbErr: any) {
         console.error("DB update failed after scan error:", dbErr?.message);
+      }
+
+      // Send scan completion email (non‑blocking) with successCount = 0
+      if (business_id) {
+        query(`SELECT u.email, b.legal_name FROM users u JOIN businesses b ON b.owner_id = u.id WHERE b.id = $1`, [business_id])
+          .then((res) => {
+            const email = res.rows[0]?.email;
+            const legalName = res.rows[0]?.legal_name || "Business";
+            if (email) {
+              sendBillScanCompleteEmail(email, legalName, 1, 0).catch((e) => console.warn("Bill scan email failed:", e?.message));
+            }
+          })
+          .catch((e) => console.warn("Failed to fetch email for scan completion:", e?.message));
       }
 
       return reply.send({

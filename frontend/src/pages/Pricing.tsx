@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getToken } from "../lib/session";
 
 type Route = "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing";
 
@@ -49,7 +50,7 @@ const PLANS: Plan[] = [
   {
     id: "pro",
     name: "Professional",
-    price: "₹499",
+    price: "₹149",
     period: "/month",
     tagline: "For growing MSMEs who need unlimited scanning and faster filing.",
     accent: "#ff6b00",
@@ -71,7 +72,7 @@ const PLANS: Plan[] = [
   {
     id: "enterprise",
     name: "Enterprise",
-    price: "₹1,499",
+    price: "₹499",
     period: "/month",
     tagline: "For CA firms and multi-entity groups with advanced compliance needs.",
     accent: "#8b5cf6",
@@ -86,7 +87,7 @@ const PLANS: Plan[] = [
       { text: "Priority AI processing", included: true },
       { text: "Dedicated onboarding", included: true },
     ],
-    cta: "Contact Sales",
+    cta: "Upgrade to Enterprise",
   },
 ];
 
@@ -109,8 +110,140 @@ const FAQ_ITEMS = [
   },
 ];
 
+const planMapping: Record<string, string> = {
+  free: "free",
+  basic: "pro",
+  ca_pro: "enterprise",
+};
+
 export default function Pricing({ navigate }: Props) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<string>("free");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load Razorpay Script
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    // Fetch user details to determine current subscription plan
+    const token = getToken();
+    if (token) {
+      fetch("/api/v1/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((payload) => {
+          if (payload?.success && payload?.data?.plan) {
+            setCurrentPlan(payload.data.plan);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  async function handleUpgrade(planId: string) {
+    if (planId === "free") {
+      navigate("dashboard");
+      return;
+    }
+
+    const currentPlanId = planMapping[currentPlan] || "free";
+    if (currentPlanId === planId) {
+      alert("You are already on this plan!");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const token = getToken();
+    if (!token) {
+      setError("Please login to proceed with plan upgrade.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const backendPlan = planId === "pro" ? "basic" : "ca_pro";
+
+      const res = await fetch("/api/v1/payments/order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan: backendPlan }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error?.message || "Order creation failed");
+      }
+
+      const options = {
+        key: data.key_id,
+        amount: data.amount,
+        currency: data.currency,
+        name: "KhataGST",
+        description: `Upgrade to ${planId === "pro" ? "Professional" : "Enterprise"} Plan`,
+        order_id: data.order_id,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch("/api/v1/payments/verify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                plan: backendPlan,
+              }),
+            });
+
+            const verifyData = await verifyRes.json().catch(() => null);
+            if (!verifyRes.ok || !verifyData?.success) {
+              throw new Error(verifyData?.error?.message || "Payment verification failed");
+            }
+
+            setCurrentPlan(backendPlan);
+            alert("Subscription activated successfully! 🚀");
+            navigate("dashboard");
+          } catch (err: any) {
+            alert(`Payment verification failed: ${err.message}`);
+          }
+        },
+        prefill: {
+          name: "",
+          email: "",
+          contact: "",
+        },
+        theme: {
+          color: "#ff6b00",
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        alert(`Payment failed: ${response.error.description}`);
+      });
+      rzp.open();
+    } catch (err: any) {
+      setError(err.message || "Failed to initiate payment");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <>
@@ -127,6 +260,8 @@ export default function Pricing({ navigate }: Props) {
       </nav>
 
       <div className="pr-shell">
+        {error && <div className="pr-error-banner">{error}</div>}
+
         {/* Hero */}
         <section className="pr-hero">
           <div className="pr-hero-glow-a" />
@@ -144,73 +279,78 @@ export default function Pricing({ navigate }: Props) {
 
         {/* Plans Grid */}
         <section className="pr-plans-grid">
-          {PLANS.map((plan) => (
-            <article
-              key={plan.id}
-              className={`pr-plan ${plan.popular ? "pr-plan-popular" : ""}`}
-            >
-              {plan.popular && (
-                <div className="pr-plan-glow" />
-              )}
-
-              <div className="pr-plan-top">
-                {plan.badge && (
-                  <span
-                    className="pr-badge"
-                    style={{ background: plan.accent, color: "#fff" }}
-                  >
-                    {plan.badge}
-                  </span>
-                )}
-                <div
-                  className="pr-plan-icon"
-                  style={{ background: plan.surface, color: plan.accent }}
-                >
-                  {plan.name.charAt(0)}
-                </div>
-                <h3 className="pr-plan-name">{plan.name}</h3>
-                <div className="pr-price-row">
-                  <span className="pr-price">{plan.price}</span>
-                  <span className="pr-period">{plan.period}</span>
-                </div>
-                <p className="pr-tagline">{plan.tagline}</p>
-              </div>
-
-              <div className="pr-divider" />
-
-              <ul className="pr-features">
-                {plan.features.map((f) => (
-                  <li
-                    key={f.text}
-                    className={f.included ? "pr-included" : "pr-excluded"}
-                  >
-                    <span className="pr-check">
-                      {f.included ? "✓" : "—"}
-                    </span>
-                    {f.text}
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                className="pr-cta"
-                style={{
-                  background: plan.popular
-                    ? `linear-gradient(135deg, ${plan.accent}, #ea580c)`
-                    : plan.surface,
-                  color: plan.popular ? "#fff" : plan.accent,
-                  boxShadow: plan.popular
-                    ? `0 12px 28px ${plan.accent}33`
-                    : "none",
-                }}
-                onClick={() => {
-                  if (plan.id === "free") navigate("dashboard");
-                }}
+          {PLANS.map((plan) => {
+            const isCurrent = planMapping[currentPlan] === plan.id;
+            return (
+              <article
+                key={plan.id}
+                className={`pr-plan ${plan.popular ? "pr-plan-popular" : ""}`}
               >
-                {plan.cta}
-              </button>
-            </article>
-          ))}
+                {plan.popular && (
+                  <div className="pr-plan-glow" />
+                )}
+
+                <div className="pr-plan-top">
+                  {plan.badge && (
+                    <span
+                      className="pr-badge"
+                      style={{ background: plan.accent, color: "#fff" }}
+                    >
+                      {plan.badge}
+                    </span>
+                  )}
+                  <div
+                    className="pr-plan-icon"
+                    style={{ background: plan.surface, color: plan.accent }}
+                  >
+                    {plan.name.charAt(0)}
+                  </div>
+                  <h3 className="pr-plan-name">{plan.name}</h3>
+                  <div className="pr-price-row">
+                    <span className="pr-price">{plan.price}</span>
+                    <span className="pr-period">{plan.period}</span>
+                  </div>
+                  <p className="pr-tagline">{plan.tagline}</p>
+                </div>
+
+                <div className="pr-divider" />
+
+                <ul className="pr-features">
+                  {plan.features.map((f) => (
+                    <li
+                      key={f.text}
+                      className={f.included ? "pr-included" : "pr-excluded"}
+                    >
+                      <span className="pr-check">
+                        {f.included ? "✓" : "—"}
+                      </span>
+                      {f.text}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  className="pr-cta"
+                  style={{
+                    background: isCurrent
+                      ? "#e2e8f0"
+                      : plan.popular
+                      ? `linear-gradient(135deg, ${plan.accent}, #ea580c)`
+                      : plan.surface,
+                    color: isCurrent ? "#64748b" : plan.popular ? "#fff" : plan.accent,
+                    boxShadow: !isCurrent && plan.popular
+                      ? `0 12px 28px ${plan.accent}33`
+                      : "none",
+                    cursor: isCurrent || loading ? "default" : "pointer",
+                  }}
+                  onClick={() => !isCurrent && !loading && handleUpgrade(plan.id)}
+                  disabled={isCurrent || loading}
+                >
+                  {isCurrent ? "Current Plan" : loading ? "Loading..." : plan.cta}
+                </button>
+              </article>
+            );
+          })}
         </section>
 
         {/* FAQ */}
@@ -267,6 +407,8 @@ const STYLES = `
 body{margin:0;background:radial-gradient(circle at top left,rgba(255,107,0,.06),transparent 22%),linear-gradient(180deg,#f8fafc 0%,#eef3f9 100%);font-family:'Manrope',sans-serif;color:#0f172a}
 button{font-family:inherit}
 
+.pr-error-banner{padding:12px;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:12px;font-size:14px;font-weight:600;text-align:center;margin-bottom:12px}
+
 .pr-topbar{position:sticky;top:0;z-index:120;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.05);background:rgba(15,23,42,.88);backdrop-filter:blur(16px)}
 .pr-brand{justify-self:center;font:700 17px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-.02em}.pr-brand span{color:#ff6b00}
 .pr-back{padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.05);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s ease}
@@ -314,7 +456,8 @@ button{font-family:inherit}
 .pr-excluded .pr-check{background:rgba(148,163,184,.08);color:#b0b8c6}
 
 .pr-cta{margin-top:20px;padding:14px 20px;border-radius:16px;border:none;font-size:14px;font-weight:800;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease}
-.pr-cta:hover{transform:translateY(-2px)}
+.pr-cta:hover:not(:disabled){transform:translateY(-2px)}
+.pr-cta:disabled{cursor:default}
 
 /* FAQ */
 .pr-faq-section{display:flex;flex-direction:column;gap:14px}
@@ -323,7 +466,7 @@ button{font-family:inherit}
 .pr-faq{width:100%;text-align:left;padding:18px 20px;border-radius:18px;border:1px solid rgba(219,227,239,.9);background:rgba(255,255,255,.92);cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease}
 .pr-faq:hover{border-color:rgba(255,107,0,.15)}
 .pr-faq-open{border-color:rgba(255,107,0,.2);box-shadow:0 6px 16px rgba(255,107,0,.04)}
-.pr-faq-q{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pr-faq-q{display:flex;align-items:center;justify-between:gap:12px}
 .pr-faq-q strong{font-size:14px;font-weight:800;color:#0f172a}
 .pr-faq-toggle{width:28px;height:28px;display:grid;place-items:center;border-radius:10px;background:rgba(15,23,42,.05);font-size:16px;font-weight:800;color:#5f6c80;flex-shrink:0}
 .pr-faq-a{margin:12px 0 0;font-size:13px;line-height:1.8;color:#5f6c80}

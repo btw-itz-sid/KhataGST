@@ -203,6 +203,61 @@ function getBillScanCompleteTemplate(
   `;
 }
 
+function getPaymentSuccessTemplate(
+  name: string,
+  planName: string,
+  amount: string,
+  paymentId: string
+): string {
+  return `
+    <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml">
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 20px; border-radius: 8px; }
+          .content { padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 20px; }
+          .footer { color: #999; font-size: 12px; margin-top: 20px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>💳 Plan Upgraded Successfully!</h1>
+          </div>
+
+          <div class="content">
+            <p>Hi <strong>${name}</strong>,</p>
+
+            <p>Your payment was successful and your plan has been successfully upgraded.</p>
+
+            <div style="background: #f0fdf4; padding: 15px; border-left: 4px solid #38ef7d; margin: 15px 0; border-radius: 4px;">
+              <p><strong>Subscription Details:</strong></p>
+              <ul style="list-style: none; padding: 0;">
+                <li>🚀 New Plan: <strong>${planName}</strong></li>
+                <li>💰 Price Paid: <strong>${amount}</strong></li>
+                <li>🔑 Transaction ID: <code>${paymentId}</code></li>
+                <li>📅 Validity: <strong>30 Days</strong> (Renewable)</li>
+              </ul>
+            </div>
+
+            <p>Thank you for choosing KhataGST! All premium features are now unlocked for your account.</p>
+
+            <p style="color: #666; font-size: 14px; border-top: 1px solid #e0e0e0; padding-top: 15px;">
+              Need help with your subscription? Contact support@khatagst.com
+            </p>
+          </div>
+
+          <div class="footer">
+            <p>© 2026 KhataGST. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
 // Email bhejne ka main function
 export async function sendEmail(
   to: string,
@@ -332,3 +387,21 @@ export async function sendWelcomeEmail(
 
   await sendEmail(email, "Welcome to KhataGST - GST Filing Made Easy", htmlContent);
 }
+
+export async function sendPaymentSuccessEmail(
+  email: string,
+  name: string,
+  plan: string,
+  amountInPaise: number,
+  paymentId: string
+): Promise<void> {
+  const planName = plan === "ca_pro" ? "Enterprise (CA Pro)" : "Professional";
+  const amountStr = `₹${(amountInPaise / 100).toFixed(2)}`;
+  const htmlContent = getPaymentSuccessTemplate(name, planName, amountStr, paymentId);
+  await sendEmail(
+    email,
+    `Payment Confirmed - Plan Upgraded to ${planName}`,
+    htmlContent
+  );
+}
+

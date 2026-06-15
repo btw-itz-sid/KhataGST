@@ -8,6 +8,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { z } from "zod";
 import { query } from "../lib/db.js";
+import { sendWelcomeEmail } from "../services/emailService.js";
 
 const DEV_OTP_LOG_PATH = path.resolve(
   process.cwd(),
@@ -258,6 +259,13 @@ export async function authRoutes(app: FastifyInstance) {
         );
         user = created.rows[0];
         console.log(`Naya user bana: ${phone}`);
+
+        // Welcome email bhejo — non-blocking
+        if (user.email) {
+          sendWelcomeEmail(user.email, user.name ?? "KhataGST User").catch((e) =>
+            console.warn("Welcome email failed:", e?.message)
+          );
+        }
       }
     } catch (dbErr) {
       console.error("User create/fetch failed:", dbErr);

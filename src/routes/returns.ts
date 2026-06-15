@@ -2,6 +2,8 @@
 import { FastifyInstance } from "fastify";
 import { computeGSTR1, formatPaise } from "../services/gstr1Service.js";
 import { z } from "zod";
+import { query as dbQuery } from "../lib/db.js";
+import { sendGSTReturnFiledEmail } from "../services/emailService.js";
 
 export async function returnRoutes(app: FastifyInstance) {
 
@@ -230,6 +232,85 @@ export async function returnRoutes(app: FastifyInstance) {
       return reply.status(500).send({
         success: false,
         error: { code: "SERVER_ERROR", message: err?.message ?? "Recompute fail ho gaya" },
+      });
+    }
+  });
+
+  // POST /api/v1/returns/:id/file
+  // GST return file karo (mark as filed, generate ARN and send email notification)
+  app.post("/:id/file", {
+    preHandler: [app.authenticate],
+  }, async (request, reply) => {
+    const { userId } = request.user as any;
+    const { id } = request.params as any;
+
+    try {
+      // Return record aur business/owner verify karo
+      const returnResult = await dbQuery(
+        `SELECT r.*, b.legal_name FROM gst_returns r
+         JOIN businesses b ON r.business_id = b.id
+         WHERE r.id = $1 AND b.owner_id = $2`,
+        [id, userId]
+      );
+
+      if (returnResult.rows.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Return nahi mila ya unauthorized" },
+        });
+      }
+
+      const returnRecord = returnResult.rows[0];
+
+      if (returnRecord.status === "filed") {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "ALREADY_FILED", message: "Yeh return already file ho chuka hai" },
+        });
+      }
+
+      // Generate unique random ARN (format: AA + 13 digits)
+      const arn = `AA${Math.floor(1000000000000 + Math.random() * 9000000000000)}`;
+
+      // Update DB to filed
+      await dbQuery(
+        `UPDATE gst_returns
+         SET status = 'filed',
+             arn = $1,
+             filed_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $2`,
+        [arn, id]
+      );
+
+      // Fetch user's email for notification
+      const userResult = await dbQuery(
+        "SELECT email FROM users WHERE id = $1",
+        [userId]
+      );
+      const email = userResult.rows[0]?.email;
+
+      if (email) {
+        // Send email non-blocking
+        sendGSTReturnFiledEmail(
+          email,
+          returnRecord.legal_name,
+          returnRecord.return_type,
+          returnRecord.tax_period,
+          arn
+        ).catch((e) => console.warn("Filing email send failed:", e?.message));
+      }
+
+      return reply.send({
+        success: true,
+        message: "GST Return filed successfully",
+        arn,
+        filed_at: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      return reply.status(500).send({
+        success: false,
+        error: { code: "SERVER_ERROR", message: err?.message ?? "Filing process failed" },
       });
     }
   });
