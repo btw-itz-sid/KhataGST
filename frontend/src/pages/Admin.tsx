@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { getToken } from "../lib/session";
+import { BASE_URL } from "../lib/api";
 
 interface DashboardStats {
   overview: {
@@ -78,7 +79,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/v1/admin/dashboard", {
+      const res = await fetch(`${BASE_URL}/admin/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -100,7 +101,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/v1/admin/users?limit=${limit}&offset=${offset}`, {
+      const res = await fetch(`${BASE_URL}/admin/users?limit=${limit}&offset=${offset}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -127,7 +128,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/v1/admin/businesses?limit=${limit}&offset=${offset}`, {
+      const res = await fetch(`${BASE_URL}/admin/businesses?limit=${limit}&offset=${offset}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -155,7 +156,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
       setLoading(true);
       setError(null);
       const statusParam = status ? `&status=${status}` : "";
-      const res = await fetch(`/api/v1/admin/returns?limit=${limit}&offset=${offset}${statusParam}`, {
+      const res = await fetch(`${BASE_URL}/admin/returns?limit=${limit}&offset=${offset}${statusParam}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

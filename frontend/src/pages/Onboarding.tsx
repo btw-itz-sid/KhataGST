@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getApiErrorMessage } from "../lib/api";
+import { getApiErrorMessage, BASE_URL } from "../lib/api";
 import { getToken, type StoredBusinessContext } from "../lib/session";
 
 interface Props {
@@ -132,7 +132,7 @@ export default function Onboarding({
     setError(null);
 
     try {
-      const response = await fetch("/api/v1/businesses", {
+      const response = await fetch(`${BASE_URL}/businesses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

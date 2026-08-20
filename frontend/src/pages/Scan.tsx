@@ -34,8 +34,7 @@ interface ScannedInvoiceData {
   action: "auto" | "review" | "manual";
 }
 
-// Backend ka base URL
-const BASE_URL = "/api/v1";
+import { BASE_URL } from "../lib/api";
 
 // Scan ka flow — kahan hai user abhi
 type ScanStep = "upload" | "scanning" | "review" | "saving" | "done";

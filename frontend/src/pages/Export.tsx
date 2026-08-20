@@ -25,8 +25,7 @@ interface StatusMsg {
   text: string;
 }
 
-// Backend base URL
-const BASE_URL = "/api/v1";
+import { BASE_URL } from "../lib/api";
 
 // Mahino ke naam
 const MONTHS = [

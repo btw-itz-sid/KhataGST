@@ -38,8 +38,7 @@ interface Props {
   onLogout: () => void;
 }
 
-// Backend URL
-const BASE_URL = "/api/v1";
+import { BASE_URL } from "../lib/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Profile Component

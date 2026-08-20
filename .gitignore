@@ -2,14 +2,21 @@ node_modules/
 .env
 dist/
 *.log
-dev-otp.log
 
-# Uploaded bill scan images — yahan real user files hoti hain
+# Uploaded bill scan images
 uploads/
 
-# Test images
+# Test files
 test-images/
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+backend/dist/
+frontend/dist/
