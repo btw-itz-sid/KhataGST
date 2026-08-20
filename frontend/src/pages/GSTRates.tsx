@@ -1,8 +1,9 @@
 // frontend/src/pages/GSTRates.tsx
 // GST Rate Master — 0%, 5%, 12%, 18%, 28% maintain karo
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getToken } from "../lib/session";
+import { BASE_URL } from "../lib/api";
 
 interface Rate {
   id: string;
@@ -44,7 +45,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
     try {
       setLoading(true);
       setError(null);
-      const url = new URL("/api/v1/gst-rates", window.location.origin);
+      const url = new URL(`${BASE_URL}/gst-rates`, window.location.origin);
       if (searchHsn) url.searchParams.set("hsn_sac", searchHsn);
       if (searchRate) url.searchParams.set("gst_rate", searchRate);
 
@@ -98,7 +99,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
       let res: Response;
       if (editingId) {
         // Update existing
-        res = await fetch(`/api/v1/gst-rates/${editingId}`, {
+        res = await fetch(`${BASE_URL}/gst-rates/${editingId}`, {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -112,7 +113,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
         });
       } else {
         // Create new
-        res = await fetch("/api/v1/gst-rates", {
+        res = await fetch(`${BASE_URL}/gst-rates`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -150,7 +151,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
 
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/gst-rates/${id}`, {
+      const res = await fetch(`${BASE_URL}/gst-rates/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

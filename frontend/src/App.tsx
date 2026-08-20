@@ -16,6 +16,7 @@ import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
 import Profile from "./pages/Profile";
 import Scan from "./pages/Scan";
+import AiCaCopilot from "./pages/AiCaCopilot";
 import {
   clearBusinessContext,
   clearSession,
@@ -26,6 +27,7 @@ import {
   setBusinessContext,
   type StoredBusinessContext,
 } from "./lib/session";
+import { BASE_URL } from "./lib/api";
 
 // App ke andar sabhi possible routes
 type Route =
@@ -34,14 +36,15 @@ type Route =
   | "admin"
   | "dashboard"
   | "scan"
+  | "ai-ca"
   | "invoices"
   | "export"
   | "gst-rates"
   | "profile"
   | "pricing";
 
-// Backend base URL
-const BASE_URL = "/api/v1";
+// BASE_URL comes from VITE_API_BASE_URL env var (defined in frontend/.env)
+// → src/lib/api.ts
 
 // ── Business fetch karo session token se ──────────────────────────────────
 // Returns: business context, null (no business = onboarding), "unauthorized", ya "error"
@@ -119,6 +122,16 @@ export function BottomNav({
           <path d="M7 20H5.5A1.5 1.5 0 0 1 4 18.5V17"/>
           <path d="M12 8v8"/>
           <path d="M8 12h8"/>
+        </svg>
+      ),
+    },
+    {
+      route: "ai-ca",
+      label: "AI CA",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2v20"/>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
       ),
     },
@@ -355,6 +368,11 @@ export default function App() {
       {/* ── AI Invoice Scan ────────────────────────────────────────── */}
       {route === "scan" && (
         <Scan navigate={navigate} />
+      )}
+
+      {/* ── Autonomous AI CA Copilot ───────────────────────────────── */}
+      {route === "ai-ca" && (
+        <AiCaCopilot navigate={navigate} />
       )}
 
       {/* ── Invoice Register ───────────────────────────────────────── */}

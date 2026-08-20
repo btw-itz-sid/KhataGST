@@ -1,3 +1,9 @@
+// frontend/src/lib/api.ts
+// API utility functions — centralized BASE_URL and error handling
+
+// ✅ Uses VITE_API_BASE_URL env var instead of hardcoded value
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+
 type ApiRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): ApiRecord | null {
@@ -36,4 +42,31 @@ export function getApiErrorMessage(payload: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+/**
+ * Authenticated fetch helper — attaches JWT token and handles 401
+ */
+export async function apiFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = localStorage.getItem("khatagst_token") || "";
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  // Don't set Content-Type for FormData (browser sets boundary)
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  return fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
 }

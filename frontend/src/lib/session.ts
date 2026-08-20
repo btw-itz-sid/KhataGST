@@ -24,11 +24,12 @@ export function hasValidSession(): boolean {
   return Date.now() < parsedExpiry;
 }
 
+// ✅ JWT is now 7 days — session expiry matches
 export function setAuthSession(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(
     TOKEN_EXPIRY_KEY,
-    String(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    String(Date.now() + 7 * 24 * 60 * 60 * 1000)
   );
 }
 

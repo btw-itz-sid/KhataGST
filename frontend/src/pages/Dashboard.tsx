@@ -64,8 +64,7 @@ interface Props {
   onLogout: () => void;
 }
 
-// Backend ka base URL
-const BASE_URL = "/api/v1";
+import { BASE_URL } from "../lib/api";
 
 // ── Helper: Paise ko readable rupees mein convert karo ─────────────────────
 function formatRupees(paise: number): string {

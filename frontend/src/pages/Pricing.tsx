@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getToken } from "../lib/session";
+import { BASE_URL } from "../lib/api";
 
 type Route = "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing";
 
@@ -132,7 +133,7 @@ export default function Pricing({ navigate }: Props) {
     // Fetch user details to determine current subscription plan
     const token = getToken();
     if (token) {
-      fetch("/api/v1/auth/me", {
+      fetch(`${BASE_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
@@ -174,7 +175,7 @@ export default function Pricing({ navigate }: Props) {
     try {
       const backendPlan = planId === "pro" ? "basic" : "ca_pro";
 
-      const res = await fetch("/api/v1/payments/order", {
+      const res = await fetch(`${BASE_URL}/payments/order`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -197,7 +198,7 @@ export default function Pricing({ navigate }: Props) {
         order_id: data.order_id,
         handler: async function (response: any) {
           try {
-            const verifyRes = await fetch("/api/v1/payments/verify", {
+            const verifyRes = await fetch(`${BASE_URL}/payments/verify`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",

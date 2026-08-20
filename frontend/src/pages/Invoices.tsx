@@ -54,8 +54,7 @@ interface Props {
   navigate: (route: Route) => void;
 }
 
-// Backend ka base URL
-const BASE_URL = "/api/v1";
+import { BASE_URL } from "../lib/api";
 
 // ── Helper: Paise ko INR format mein dikhao ────────────────────────────────
 function formatMoney(paise: number): string {

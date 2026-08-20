@@ -23,8 +23,7 @@ interface Props {
 // Login ka flow — teen steps hain
 type Step = "phone" | "otp" | "loading";
 
-// Backend ka base URL
-const BASE_URL = "/api/v1";
+import { BASE_URL } from "../lib/api";
 
 // OTP kitne digits ka hai
 const OTP_LENGTH = 6;
