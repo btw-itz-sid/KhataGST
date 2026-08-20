@@ -20,3 +20,9 @@ Thumbs.db
 # Build artifacts
 backend/dist/
 frontend/dist/
+
+# Internal roadmaps & progress documents (keep local only)
+PROGRESS.md
+LAUNCH_AND_ENTERPRISE_ROADMAP.md
+*ROADMAP*.md
+*PROGRESS*.md
