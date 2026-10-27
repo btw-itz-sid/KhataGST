@@ -1,31 +1,18 @@
 // src/routes/scans.ts
 // Bill scan routes — image upload, AI extraction, retry
-// Fix: Images ab permanent uploads/ folder mein save hoti hain (tmp ki jagah)
+// Fix: Files storageService se save/load hoti hain — local, S3 aur R2 teeno mein scan aur retry chalte hain
 // Fix: Scan GET list mein business ownership check add kiya gaya
 
 import { FastifyInstance } from "fastify";
 import { query } from "../lib/db.js";
 import {
   createManualReviewFallback,
+  resolveBillMimeType,
   scanBillWithAI,
 } from "../services/billScanService.js";
 import { sendBillScanCompleteEmail } from "../services/emailService.js";
 import { storageService } from "../services/storageService.js";
-import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
-
-// ── Uploads directory — permanent storage (Railway volume ya local) ──────────
-// /tmp ke badle uploads/ folder use karo — retry ke liye file milti rahegi
-const UPLOADS_DIR = process.env.UPLOADS_DIR
-  ? path.resolve(process.env.UPLOADS_DIR)
-  : path.resolve(process.cwd(), "uploads");
-
-// Server start hone par directory create karo
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  console.log(`📁 Uploads directory created: ${UPLOADS_DIR}`);
-}
 
 // ── Allowed file types ───────────────────────────────────────────────────────
 const ALLOWED_MIME_TYPES = new Set([
@@ -89,16 +76,16 @@ export async function scanRoutes(app: FastifyInstance) {
       });
     }
 
+    const mimeType = resolveBillMimeType(filename, detectedMimeType);
+
     // Upload via Storage Service (Cloud R2/S3 or local persistence)
     const uploadResult = await storageService.upload({
       fileBuffer,
       originalFilename: filename,
-      mimeType: detectedMimeType,
+      mimeType,
       userId,
       folder: "scans",
     });
-
-    const filePath = path.join(UPLOADS_DIR, uploadResult.storageKey);
 
     // Business ownership verify karo
     const bizCheck = await query(
@@ -121,7 +108,7 @@ export async function scanRoutes(app: FastifyInstance) {
     const scanId = scanRecord.rows[0].id;
 
     try {
-      const result = await scanBillWithAI(filePath);
+      const result = await scanBillWithAI({ buffer: fileBuffer, mimeType });
 
       await query(
         `UPDATE bill_scans
@@ -266,10 +253,18 @@ export async function scanRoutes(app: FastifyInstance) {
       }
 
       const scan = scanResult.rows[0];
-      const filePath = scan.file_url;
 
-      // ✅ Fix: File permanent uploads/ mein hai, isliye milegi
-      if (!filePath || !fs.existsSync(filePath)) {
+      // Local, S3 aur R2 teeno se file storage service hi laata hai
+      let fileBuffer: Buffer | null = null;
+      if (scan.storage_key) {
+        try {
+          fileBuffer = await storageService.getFileBuffer(scan.storage_key);
+        } catch {
+          fileBuffer = null;
+        }
+      }
+
+      if (!fileBuffer) {
         return reply.status(410).send({
           success: false,
           error: {
@@ -285,7 +280,10 @@ export async function scanRoutes(app: FastifyInstance) {
       );
 
       try {
-        const result = await scanBillWithAI(filePath);
+        const result = await scanBillWithAI({
+          buffer: fileBuffer,
+          mimeType: resolveBillMimeType(scan.storage_key),
+        });
 
         await query(
           `UPDATE bill_scans

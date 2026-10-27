@@ -231,7 +231,8 @@ KhataGST utilizes **Neon Serverless PostgreSQL** with SSL-enforced connection po
 | `002_pre_deploy.sql` | Production hardening | `otp_verifications` (in-database OTP storage with brute-force tracking), auto-updating `updated_at` triggers |
 | `003_rbac_storage.sql` | Enterprise access & audit | `users.role` (`owner`, `admin`, `ca`, `accountant`), `bill_scans.storage_provider`, `audit_logs` table |
 | `004_gst_rates.sql` | Rate master | `gst_rates` table for HSN/SAC lookup with effective date ranges |
-| `005_knowledge_vector.sql` | AI vector layer | `pgvector` extension, `gst_statutory_knowledge` table with IVFFlat cosine similarity index |
+| `005_knowledge_vector.sql` | AI vector layer | `pgvector` extension, `gst_knowledge_base` table with 768-dimension embeddings |
+| `006_otp_hash_and_knowledge_search.sql` | Security & search | Drops plaintext `otp` column (HMAC hash only), unique section key for upserts, HNSW cosine index |
 
 ---
 
@@ -384,6 +385,13 @@ psql "$DATABASE_URL" -f db/migrations/002_pre_deploy.sql
 psql "$DATABASE_URL" -f db/migrations/003_rbac_storage.sql
 psql "$DATABASE_URL" -f db/migrations/004_gst_rates.sql
 psql "$DATABASE_URL" -f db/migrations/005_knowledge_vector.sql
+psql "$DATABASE_URL" -f db/migrations/006_otp_hash_and_knowledge_search.sql
+```
+
+Embed the statutory sections for the AI CA's semantic search (needs `GEMINI_API_KEY`), and run the tests:
+```bash
+npm run seed:knowledge
+npm test
 ```
 
 Run the backend development server:

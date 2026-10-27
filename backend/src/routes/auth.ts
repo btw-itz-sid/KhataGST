@@ -2,6 +2,7 @@
 // Auth routes — OTP send/verify aur /me endpoint
 // ✅ OTP cooldown: 60s per phone
 // ✅ Brute force protection: max 5 wrong attempts
+// ✅ OTP DB mein sirf HMAC hash ke roop mein (lib/otp.ts)
 // ✅ JWT expiry: 7 days (was 30d)
 
 import { FastifyInstance } from "fastify";
@@ -9,6 +10,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { z } from "zod";
 import { query } from "../lib/db.js";
+import { generateOTP, hashOtp, otpMatches } from "../lib/otp.js";
 import { sendWelcomeEmail } from "../services/emailService.js";
 
 const DEV_OTP_LOG_PATH = path.resolve(
@@ -18,10 +20,6 @@ const DEV_OTP_LOG_PATH = path.resolve(
 
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_COOLDOWN_SECONDS = 60; // 60 seconds between OTP sends per phone
-
-function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
 
 function isValidPhone(phone: string): boolean {
   return /^[6-9]\d{9}$/.test(phone);
@@ -62,11 +60,11 @@ async function saveOtpToDB(phone: string, otp: string): Promise<void> {
   // Purane OTP delete karo pehle
   await query("DELETE FROM otp_verifications WHERE phone = $1", [phone]);
 
-  // Naya OTP insert karo
+  // Naya OTP insert karo — sirf hash save hota hai (migration 006 otp column nullable karta hai)
   await query(
-    `INSERT INTO otp_verifications (phone, otp_hash, otp, expires_at)
-     VALUES ($1, $2, $3, $4)`,
-    [phone, otp, otp, expiresAt.toISOString()]
+    `INSERT INTO otp_verifications (phone, otp_hash, expires_at)
+     VALUES ($1, $2, $3)`,
+    [phone, hashOtp(phone, otp), expiresAt.toISOString()]
   );
 }
 
@@ -101,7 +99,7 @@ async function verifyOtpFromDB(
   }
 
   // Wrong OTP — increment attempt count
-  if (record.otp !== otp) {
+  if (!otpMatches(record.otp_hash, phone, otp)) {
     await query(
       "UPDATE otp_verifications SET attempts = attempts + 1 WHERE id = $1",
       [record.id]
