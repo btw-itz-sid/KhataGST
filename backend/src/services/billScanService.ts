@@ -1,4 +1,3 @@
-import * as fs from "fs";
 import * as path from "path";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
@@ -296,18 +295,34 @@ export function shouldUseManualReviewFallback(error: unknown): boolean {
   );
 }
 
-export async function scanBillWithAI(imagePath: string): Promise<ScanBillResult> {
+const MIME_BY_EXTENSION: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+};
+
+// Browsers sometimes send application/octet-stream, so the extension wins when it is known
+export function resolveBillMimeType(filename: string, detectedMimeType = ""): string {
+  const fromExtension = MIME_BY_EXTENSION[path.extname(filename).toLowerCase()];
+  if (fromExtension) return fromExtension;
+  if (Object.values(MIME_BY_EXTENSION).includes(detectedMimeType)) return detectedMimeType;
+  return "image/jpeg";
+}
+
+export async function scanBillWithAI(file: {
+  buffer: Buffer;
+  mimeType: string;
+}): Promise<ScanBillResult> {
   if (!GEMINI_API_KEY) {
     throw new Error("Gemini API key missing hai. GEMINI_API_KEY set karo.");
   }
 
-  // Read image and convert to base64
-  const imageBuffer = fs.readFileSync(imagePath);
-  const base64Image = imageBuffer.toString("base64");
-  const ext = path.extname(imagePath).toLowerCase();
-  const mimeType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+  const base64Image = file.buffer.toString("base64");
+  const mimeType = file.mimeType;
 
-  const prompt = `You are a GST invoice data extractor for Indian businesses. Extract ALL data from this GST invoice image.
+  const prompt = `You are a GST invoice data extractor for Indian businesses. Extract ALL data from this GST invoice (photo, scan or PDF).
 
 Return ONLY a valid JSON object with NO extra text, NO markdown, NO backticks:
 {

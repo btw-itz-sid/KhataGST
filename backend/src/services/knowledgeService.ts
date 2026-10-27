@@ -3,6 +3,18 @@
 // Covers CGST/SGST Acts, Section 16, Section 17(5), Rule 88A, Rule 86B, Section 50, and RCM
 
 import { query } from "../lib/db.js";
+import { embedText, isEmbeddingConfigured, toPgVector } from "./embeddingService.js";
+
+// Measured on gemini-embedding-001: on-topic GST questions score 0.68–0.76, off-topic ones stay below 0.48
+const MIN_SIMILARITY = Number(process.env.KNOWLEDGE_MIN_SIMILARITY ?? 0.55);
+
+// Whole-word match with optional plural, so "car" matches "cars" but not "card", "cargo" or "scarf"
+export function containsTerm(text: string, term: string): boolean {
+  const escaped = term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![a-z0-9])${escaped}(?:s|es)?(?![a-z0-9])`).test(text.toLowerCase());
+}
+
+const containsAny = (text: string, terms: string[]) => terms.some((term) => containsTerm(text, term));
 
 export interface GSTKnowledgeItem {
   id?: string;
@@ -154,47 +166,55 @@ export class KnowledgeService {
   }
 
   /**
-   * Search knowledge base by semantic match or keyword scoring
+   * Semantic search over embedded statute sections (pgvector), with keyword scoring as fallback
    */
   public async search(userQuery: string, limit: number = 3): Promise<GSTKnowledgeItem[]> {
-    const cleanQuery = userQuery.toLowerCase();
-    const queryWords = cleanQuery.split(/\s+/).filter((w) => w.length > 2);
+    const semantic = await this.semanticSearch(userQuery, limit);
+    if (semantic.length > 0) return semantic;
+    return this.keywordSearch(userQuery, limit);
+  }
 
-    // Try database pgvector search if available
+  private async semanticSearch(userQuery: string, limit: number): Promise<GSTKnowledgeItem[]> {
+    if (!isEmbeddingConfigured()) return [];
+
     try {
+      const queryVector = toPgVector(await embedText(userQuery, "RETRIEVAL_QUERY"));
       const dbRes = await query(
-        `SELECT section_title, source_act, section_number, category, content, legal_rule_metadata
+        `SELECT section_title, source_act, section_number, category, content, legal_rule_metadata,
+                1 - (embedding <=> $1::vector) AS similarity
          FROM gst_knowledge_base
-         WHERE content ILIKE $1 OR section_title ILIKE $1
+         WHERE embedding IS NOT NULL
+         ORDER BY embedding <=> $1::vector
          LIMIT $2`,
-        [`%${cleanQuery}%`, limit]
+        [queryVector, limit]
       );
 
-      if (dbRes.rows.length > 0) {
-        return dbRes.rows as GSTKnowledgeItem[];
-      }
-    } catch {
-      // Fall back to statutory in-memory graph
+      return dbRes.rows
+        .filter((row) => Number(row.similarity) >= MIN_SIMILARITY)
+        .map(({ similarity, ...item }) => item as GSTKnowledgeItem);
+    } catch (err: any) {
+      console.warn("Semantic knowledge search unavailable, using keyword search:", err?.message ?? err);
+      return [];
     }
+  }
 
-    // In-memory weighted scoring
+  public keywordSearch(userQuery: string, limit: number = 3): GSTKnowledgeItem[] {
+    const cleanQuery = userQuery.toLowerCase();
+    const queryWords = cleanQuery.split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+
     const scored = STATUTORY_TAX_KNOWLEDGE.map((item) => {
       let score = 0;
-      const contentLower = item.content.toLowerCase();
-      const titleLower = item.section_title.toLowerCase();
       const keywords = item.legal_rule_metadata.keywords || [];
 
-      // Keyword exact matching
       for (const kw of keywords) {
-        if (cleanQuery.includes(kw.toLowerCase())) {
+        if (containsTerm(cleanQuery, kw)) {
           score += 10;
         }
       }
 
-      // Title match
       for (const word of queryWords) {
-        if (titleLower.includes(word)) score += 5;
-        if (contentLower.includes(word)) score += 2;
+        if (containsTerm(item.section_title, word)) score += 5;
+        if (containsTerm(item.content, word)) score += 2;
       }
 
       // Section number direct match (e.g. "17(5)")
@@ -221,16 +241,7 @@ export class KnowledgeService {
     const desc = itemDescription.toLowerCase();
 
     // Motor vehicles & maintenance
-    if (
-      desc.includes("car") ||
-      desc.includes("motor vehicle") ||
-      desc.includes("petrol") ||
-      desc.includes("diesel") ||
-      desc.includes("cab") ||
-      desc.includes("vehicle insurance") ||
-      desc.includes("car repair") ||
-      desc.includes("vehicle service")
-    ) {
+    if (containsAny(desc, ["car", "motor vehicle", "petrol", "diesel", "cab", "vehicle insurance", "vehicle service"])) {
       return {
         isBlocked: true,
         section: "Section 17(5)(a)",
@@ -240,17 +251,7 @@ export class KnowledgeService {
     }
 
     // Food, catering, restaurant, beverages
-    if (
-      desc.includes("food") ||
-      desc.includes("catering") ||
-      desc.includes("restaurant") ||
-      desc.includes("beverage") ||
-      desc.includes("lunch") ||
-      desc.includes("dinner") ||
-      desc.includes("snacks") ||
-      desc.includes("coffee") ||
-      desc.includes("sweets")
-    ) {
+    if (containsAny(desc, ["food", "catering", "restaurant", "beverage", "lunch", "dinner", "snack", "coffee", "sweet"])) {
       return {
         isBlocked: true,
         section: "Section 17(5)(b)(i)",
@@ -260,7 +261,7 @@ export class KnowledgeService {
     }
 
     // Club membership & gym
-    if (desc.includes("club") || desc.includes("gym") || desc.includes("fitness") || desc.includes("spa")) {
+    if (containsAny(desc, ["club", "gym", "fitness", "spa"])) {
       return {
         isBlocked: true,
         section: "Section 17(5)(b)(ii)",
@@ -270,7 +271,7 @@ export class KnowledgeService {
     }
 
     // Personal use, gifts, free samples
-    if (desc.includes("gift") || desc.includes("sample") || desc.includes("personal") || desc.includes("diwali gift")) {
+    if (containsAny(desc, ["gift", "sample", "personal use", "personal consumption"])) {
       return {
         isBlocked: true,
         section: "Section 17(5)(h)",
