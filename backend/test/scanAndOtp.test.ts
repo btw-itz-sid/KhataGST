@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { getScanAction, resolveBillMimeType } from "../src/services/billScanService.js";
+import { ensureBillItems, getScanAction, resolveBillMimeType } from "../src/services/billScanService.js";
 import { generateOTP, hashOtp, otpMatches } from "../src/lib/otp.js";
 
 test("PDFs are sent to Gemini as PDFs", () => {
@@ -15,6 +15,29 @@ test("confidence routes the scan", () => {
   assert.equal(getScanAction(85).action, "review");
   assert.equal(getScanAction(65).action, "review");
   assert.equal(getScanAction(64).action, "manual");
+});
+
+test("header-only bills become a single line item", () => {
+  const items = ensureBillItems({
+    invoice_number: "1",
+    vendor_name: "Vendor",
+    vendor_gstin: "",
+    invoice_date: "2026-10-01",
+    taxable_amount: 10000,
+    gst_rate: 18,
+    cgst_amount: 900,
+    sgst_amount: 900,
+    igst_amount: 0,
+    total_amount: 11800,
+    hsn_code: "7208",
+    item_description: "Steel sheets",
+    items: [],
+    confidence: 80,
+    action: "review",
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].description, "Steel sheets");
+  assert.equal(items[0].taxable_amount, 10000);
 });
 
 test("OTPs are 6 digits and only their keyed hash is comparable", () => {

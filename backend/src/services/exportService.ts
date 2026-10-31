@@ -255,3 +255,47 @@ export async function exportInvoicesCSV(
 
   return csv;
 }
+
+export async function exportCaPack(
+  businessId: string,
+  taxPeriod: string
+): Promise<Record<string, unknown>> {
+  const { computeGSTR1 } = await import("./gstr1Service.js");
+  const { computeGSTR3B } = await import("./gstr3bService.js");
+
+  const business = await query(
+    "SELECT id, gstin, legal_name, trade_name, state_code, address FROM businesses WHERE id = $1",
+    [businessId]
+  );
+
+  const [year, month] = taxPeriod.split("-").map(Number);
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endDate = new Date(year, month, 0).toISOString().split("T")[0];
+
+  const invoices = await query(
+    `SELECT i.id, i.invoice_number, i.invoice_date, i.invoice_type, i.place_of_supply,
+            i.taxable_value, i.cgst_amount, i.sgst_amount, i.igst_amount, i.total_amount,
+            i.itc_eligibility, p.name as party_name, p.gstin as party_gstin
+     FROM invoices i
+     LEFT JOIN parties p ON i.party_id = p.id
+     WHERE i.business_id = $1
+       AND i.invoice_date >= $2
+       AND i.invoice_date <= $3
+       AND i.is_cancelled = false
+     ORDER BY i.invoice_date ASC`,
+    [businessId, startDate, endDate]
+  );
+
+  const gstr1 = await computeGSTR1(businessId, taxPeriod);
+  const gstr3b = await computeGSTR3B(businessId, taxPeriod);
+
+  return {
+    generated_at: new Date().toISOString(),
+    purpose: "Share with CA. KhataGST does not file on GSTN.",
+    tax_period: taxPeriod,
+    business: business.rows[0] ?? null,
+    gstr1,
+    gstr3b,
+    invoices: invoices.rows,
+  };
+}

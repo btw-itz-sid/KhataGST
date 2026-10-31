@@ -38,6 +38,18 @@ export async function partyRoutes(app: FastifyInstance) {
       is_supplier, is_customer
     } = parsed.data;
 
+    const { userId } = request.user as any;
+    const owned = await query(
+      "SELECT id FROM businesses WHERE id = $1 AND owner_id = $2",
+      [business_id, userId]
+    );
+    if (owned.rows.length === 0) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Is business ka access nahi hai" },
+      });
+    }
+
     // GSTIN validate karo agar diya hai
     if (gstin) {
       const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -94,8 +106,19 @@ export async function partyRoutes(app: FastifyInstance) {
     }
 
     const { business_id, type, search } = parsed.data;
+    const { userId } = request.user as any;
+    const owned = await query(
+      "SELECT id FROM businesses WHERE id = $1 AND owner_id = $2",
+      [business_id, userId]
+    );
+    if (owned.rows.length === 0) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Is business ka access nahi hai" },
+      });
+    }
 
-    let whereClause = "WHERE business_id = $1";
+    let whereClause = "WHERE p.business_id = $1";
     const params: any[] = [business_id];
 
     // Type filter
@@ -112,7 +135,7 @@ export async function partyRoutes(app: FastifyInstance) {
     }
 
     const result = await query(
-      `SELECT * FROM parties ${whereClause} ORDER BY name ASC`,
+      `SELECT p.* FROM parties p ${whereClause} ORDER BY p.name ASC`,
       params
     );
 
@@ -129,9 +152,12 @@ export async function partyRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
+    const { userId } = request.user as any;
     const result = await query(
-      "SELECT * FROM parties WHERE id = $1",
-      [id]
+      `SELECT p.* FROM parties p
+       JOIN businesses b ON p.business_id = b.id
+       WHERE p.id = $1 AND b.owner_id = $2`,
+      [id, userId]
     );
 
     if (result.rows.length === 0) {
@@ -191,9 +217,15 @@ export async function partyRoutes(app: FastifyInstance) {
       });
     }
 
-    params.push(id);
+    const { userId } = request.user as any;
+    params.push(id, userId);
     const result = await query(
-      `UPDATE parties SET ${updates.join(", ")} WHERE id = $${params.length} RETURNING *`,
+      `UPDATE parties p SET ${updates.join(", ")}
+       FROM businesses b
+       WHERE p.id = $${params.length - 1}
+         AND p.business_id = b.id
+         AND b.owner_id = $${params.length}
+       RETURNING p.*`,
       params
     );
 
@@ -216,9 +248,13 @@ export async function partyRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
+    const { userId } = request.user as any;
     const result = await query(
-      "DELETE FROM parties WHERE id = $1 RETURNING id, name",
-      [id]
+      `DELETE FROM parties p
+       USING businesses b
+       WHERE p.id = $1 AND p.business_id = b.id AND b.owner_id = $2
+       RETURNING p.id, p.name`,
+      [id, userId]
     );
 
     if (result.rows.length === 0) {

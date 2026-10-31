@@ -6,8 +6,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRef, useState } from "react";
-import { getApiErrorMessage } from "../lib/api";
-import { getBusinessContext, getToken } from "../lib/session";
+import { apiFetch, getApiErrorMessage } from "../lib/api";
+import { getBusinessContext } from "../lib/session";
 
 // Route type — navigate ke liye
 type Route = "login" | "dashboard" | "scan" | "invoices" | "export";
@@ -18,6 +18,26 @@ interface Props {
 }
 
 // Scan se extract hone wala data ka structure
+interface ItcDecision {
+  itcEligibility: "eligible" | "blocked" | "rcm_applicable";
+  blockedSection?: string;
+  explanation: string;
+  statutoryReference?: string;
+  claimablePaise: number;
+  blockedPaise: number;
+  taxAmountPaise?: number;
+}
+
+interface ScanLine {
+  description: string;
+  hsn_sac: string;
+  quantity: number;
+  unit_price_paise: number;
+  gst_rate: number;
+  taxable_amount: number;
+  itc?: ItcDecision;
+}
+
 interface ScannedInvoiceData {
   invoice_number: string;
   vendor_name: string;
@@ -30,14 +50,40 @@ interface ScannedInvoiceData {
   igst_amount: number;      // paise mein
   total_amount: number;     // paise mein
   hsn_code: string;
+  item_description: string;
+  items: ScanLine[];
   confidence: number;       // 0-100
   action: "auto" | "review" | "manual";
+  itc: ItcDecision | null;
 }
 
-import { BASE_URL } from "../lib/api";
-
-// Scan ka flow — kahan hai user abhi
 type ScanStep = "upload" | "scanning" | "review" | "saving" | "done";
+
+function normalizeScanLines(ext: any, itc: ItcDecision | null): ScanLine[] {
+  const fromItc = Array.isArray((itc as any)?.lines) ? (itc as any).lines : [];
+  const fromExt = Array.isArray(ext?.items) ? ext.items : [];
+  const source = fromItc.length > 0 ? fromItc : fromExt;
+  if (source.length === 0 && Number(ext?.taxable_amount || 0) > 0) {
+    return [{
+      description: ext.item_description || "Purchase",
+      hsn_sac: ext.hsn_code || "",
+      quantity: 1,
+      unit_price_paise: Number(ext.taxable_amount || 0),
+      gst_rate: Number(ext.gst_rate || 18),
+      taxable_amount: Number(ext.taxable_amount || 0),
+      itc: itc || undefined,
+    }];
+  }
+  return source.map((item: any) => ({
+    description: String(item.description || item.item_description || "Purchase"),
+    hsn_sac: String(item.hsn_sac || item.hsn_code || ""),
+    quantity: Number(item.quantity || 1),
+    unit_price_paise: Number(item.unit_price_paise || item.unit_price || item.taxable_amount || 0),
+    gst_rate: Number(item.gst_rate || ext?.gst_rate || 18),
+    taxable_amount: Number(item.taxable_amount || item.taxable_value || 0),
+    itc: item.itc || undefined,
+  }));
+}
 
 // ── Khali invoice template — review form ke liye ───────────────────────────
 const EMPTY_INVOICE: ScannedInvoiceData = {
@@ -52,8 +98,11 @@ const EMPTY_INVOICE: ScannedInvoiceData = {
   igst_amount: 0,
   total_amount: 0,
   hsn_code: "",
+  item_description: "",
+  items: [],
   confidence: 0,
   action: "manual",
+  itc: null,
 };
 
 // ── Helper: Paise ko display ke liye INR string mein convert karo ──────────
@@ -135,15 +184,20 @@ export default function Scan({ navigate }: Props) {
 
   // ── File select hone pe preview banao ─────────────────────────────────
   function handleFile(nextFile: File) {
-    if (!nextFile.type.startsWith("image/")) {
-      setError("Sirf image file upload kar sakte hain (JPG, PNG, WEBP).");
+    const isPdf = nextFile.type === "application/pdf" || nextFile.name.toLowerCase().endsWith(".pdf");
+    const isImage = nextFile.type.startsWith("image/");
+    if (!isPdf && !isImage) {
+      setError("JPG, PNG, WEBP ya PDF upload karo.");
       return;
     }
     setFile(nextFile);
     setError(null);
     setNotice(null);
 
-    // Preview ke liye FileReader use karo
+    if (isPdf) {
+      setPreview(null);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => setPreview(e.target?.result as string);
     reader.readAsDataURL(nextFile);
@@ -153,11 +207,9 @@ export default function Scan({ navigate }: Props) {
   async function scanBill() {
     if (!file) return;
 
-    const token = getToken();
     const business = getBusinessContext();
 
-    // Session check — agar login nahi hai
-    if (!token || !business?.id) {
+    if (!business?.id) {
       setError("Session expire ho gayi. Dashboard pe jao aur dobara sign in karo.");
       return;
     }
@@ -173,9 +225,8 @@ export default function Scan({ navigate }: Props) {
       formData.append("business_id", business.id);
       formData.append("bill", file);
 
-      const response = await fetch(`${BASE_URL}/scans`, {
+      const response = await apiFetch("/scans", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -190,13 +241,16 @@ export default function Scan({ navigate }: Props) {
       if (!scan) throw new Error("Scan response incomplete hai.");
 
       const ext = scan.extracted_data ?? scan;
+      const itc = (scan.itc ?? ext.itc ?? null) as ItcDecision | null;
 
-      // Agar confidence kam hai toh notice dikhao
       if (Number(scan.confidence_score ?? ext.confidence ?? 0) < 65) {
         setNotice("AI confidence kam hai. Fields manually verify kar lo.");
       }
+      if (itc?.itcEligibility === "blocked") {
+        setNotice("Section 17(5): is purchase ka ITC blocked ho sakta hai. Claim mat karo.");
+      }
 
-      // Extracted data review form mein set karo
+      const lines = normalizeScanLines(ext, itc);
       setEdited({
         invoice_number: ext.invoice_number || "",
         vendor_name: ext.vendor_name || "",
@@ -209,8 +263,11 @@ export default function Scan({ navigate }: Props) {
         igst_amount: Number(ext.igst_amount ?? 0),
         total_amount: Number(ext.total_amount ?? 0),
         hsn_code: ext.hsn_code || "",
+        item_description: ext.item_description || lines[0]?.description || "",
+        items: lines,
         confidence: Number(scan.confidence_score ?? ext.confidence ?? 0),
         action: scan.action ?? ext.action ?? "manual",
+        itc,
       });
 
       setStep("review");
@@ -233,21 +290,32 @@ export default function Scan({ navigate }: Props) {
   async function saveInvoice() {
     if (!edited) return;
 
-    const token = getToken();
     const business = getBusinessContext();
-
-    if (!token || !business?.id) {
+    if (!business?.id) {
       setError("Session expire ho gayi. Dobara sign in karo.");
       setStep("upload");
       return;
     }
 
-    // Required fields validate karo
     if (!edited.vendor_name.trim() || !edited.invoice_number.trim() || !edited.invoice_date) {
       setError("Vendor name, invoice number, aur date required hain.");
       return;
     }
-    if (Number(edited.taxable_amount || 0) <= 0) {
+
+    const lineItems = (edited.items.length > 0
+      ? edited.items
+      : [{
+          description: edited.item_description.trim() || `Purchase from ${edited.vendor_name || "vendor"}`,
+          hsn_sac: edited.hsn_code.trim(),
+          quantity: 1,
+          unit_price_paise: Number(edited.taxable_amount || 0),
+          gst_rate: Number(edited.gst_rate || 18),
+          taxable_amount: Number(edited.taxable_amount || 0),
+          itc: edited.itc || undefined,
+        }]
+    ).filter((item) => Number(item.unit_price_paise || item.taxable_amount || 0) > 0);
+
+    if (lineItems.length === 0) {
       setError("Taxable amount enter karo.");
       return;
     }
@@ -256,17 +324,13 @@ export default function Scan({ navigate }: Props) {
     setError(null);
 
     try {
-      const response = await fetch(`${BASE_URL}/invoices`, {
+      const response = await apiFetch("/invoices", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           business_id: business.id,
           invoice_number: edited.invoice_number.trim(),
           invoice_date: edited.invoice_date,
-          invoice_type: "purchase",   // Scan se sirf purchase invoices aate hain
+          invoice_type: "purchase",
           party_name: edited.vendor_name.trim(),
           party_gstin: edited.vendor_gstin.trim().toUpperCase() || undefined,
           place_of_supply:
@@ -274,15 +338,15 @@ export default function Scan({ navigate }: Props) {
               ? edited.vendor_gstin.trim().slice(0, 2)
               : undefined,
           notes: "Scanned via AI bill capture",
-          items: [
-            {
-              description: `Purchase from ${edited.vendor_name || "vendor"}`,
-              hsn_sac: edited.hsn_code.trim() || undefined,
-              quantity: 1,
-              unit_price_paise: Number(edited.taxable_amount || 0),
-              gst_rate: Number(edited.gst_rate || 18),
-            },
-          ],
+          itc_eligibility: edited.itc?.itcEligibility || "eligible",
+          items: lineItems.map((item) => ({
+            description: item.description || edited.item_description || "Purchase",
+            hsn_sac: item.hsn_sac || undefined,
+            quantity: item.quantity || 1,
+            unit_price_paise: Number(item.unit_price_paise || item.taxable_amount || 0),
+            gst_rate: Number(item.gst_rate || edited.gst_rate || 18),
+            itc_eligibility: item.itc?.itcEligibility || edited.itc?.itcEligibility || "eligible",
+          })),
         }),
       });
 
@@ -291,7 +355,6 @@ export default function Scan({ navigate }: Props) {
         throw new Error(getApiErrorMessage(payload, "Invoice save nahi hua."));
       }
 
-      // Successfully saved!
       setStep("done");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invoice save nahi hua.");
@@ -348,12 +411,12 @@ export default function Scan({ navigate }: Props) {
           <>
             {/* Hero text */}
             <div className="scan-hero">
-              <div className="scan-eyebrow">Invoice Capture</div>
-              <h1 className="scan-title">Scan a GST invoice</h1>
+              <div className="scan-eyebrow">Bill Scan</div>
+              <h1 className="scan-title">Purchase bill scan karo</h1>
               <p className="scan-desc">
-                Upload a clear photo of a GST bill. AI will extract vendor details,
-                invoice number, GST amounts, and save it as a purchase invoice for{" "}
-                <strong>{businessName}</strong>.
+                Photo ya PDF upload karo. AI line items nikaalta hai aur har line pe batata hai —
+                ITC eligible, Section 17(5) blocked, ya RCM — pehle save karo{" "}
+                <strong>{businessName}</strong> ke liye.
               </p>
             </div>
 
@@ -370,20 +433,25 @@ export default function Scan({ navigate }: Props) {
                         <line x1="12" y1="3" x2="12" y2="15"/>
                       </svg>
                     </div>
-                    <p className="drop-title">Click to choose a bill image</p>
-                    <p className="drop-sub">JPG, PNG, or WEBP — max 10MB</p>
+                    <p className="drop-title">Bill photo ya PDF choose karo</p>
+                    <p className="drop-sub">JPG, PNG, WEBP, PDF — max 10MB</p>
                   </div>
                 ) : (
-                  /* Preview — image select ho gaya */
                   <div className="preview-wrap">
                     <img src={preview} alt="Invoice preview" className="preview-img" />
                     <button className="change-btn" onClick={reset}>Change image</button>
                   </div>
                 )}
 
-                {/* Action Buttons */}
+                {!preview && file && (
+                  <div className="pdf-chip">
+                    PDF ready: <strong>{file.name}</strong>
+                    <button className="change-btn" onClick={reset} style={{ marginLeft: 8 }}>Change</button>
+                  </div>
+                )}
+
                 <div className="upload-actions">
-                  {!preview ? (
+                  {!file ? (
                     <>
                       <button className="btn-pri" onClick={() => fileRef.current?.click()}>
                         Select File
@@ -399,9 +467,8 @@ export default function Scan({ navigate }: Props) {
                   )}
                 </div>
 
-                {/* Hidden file inputs */}
                 <input
-                  ref={fileRef} type="file" accept="image/*"
+                  ref={fileRef} type="file" accept="image/*,application/pdf,.pdf"
                   style={{ display: "none" }}
                   onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
                 />
@@ -412,13 +479,12 @@ export default function Scan({ navigate }: Props) {
                 />
               </div>
 
-              {/* Info Panel — kya extract hoga */}
               <div className="info-card">
-                <div className="info-title">What AI extracts</div>
+                <div className="info-title">AI kya nikaalta hai</div>
                 {[
-                  ["Vendor & GSTIN", "Business name, GST registration number"],
-                  ["Invoice Details", "Invoice number, date, HSN/SAC code"],
-                  ["Tax Breakdown", "Taxable value, CGST, SGST, IGST, total"],
+                  ["Vendor & GSTIN", "Seller naam aur GSTIN"],
+                  ["Line items", "Description, HSN, qty, rate"],
+                  ["ITC decision", "Eligible / blocked 17(5) / RCM — har line pe"],
                 ].map(([title, desc]) => (
                   <div key={title} className="info-row">
                     <div className="info-dot" />
@@ -521,6 +587,43 @@ export default function Scan({ navigate }: Props) {
                   />
                 </label>
 
+                <label className="field field-full">
+                  <span>Main item / expense description</span>
+                  <input
+                    className="field-input"
+                    value={edited.item_description}
+                    onChange={(e) => updateField("item_description", e.target.value)}
+                    placeholder="e.g. Staff lunch, steel sheets, advocate fees"
+                  />
+                </label>
+
+                {edited.items.length > 0 && (
+                  <div className="field field-full">
+                    <span>Line items + ITC</span>
+                    <div className="line-itc-list">
+                      {edited.items.map((line, idx) => (
+                        <div key={`${line.description}-${idx}`} className={`line-itc-row line-${line.itc?.itcEligibility || "eligible"}`}>
+                          <div>
+                            <strong>{line.description || "Purchase"}</strong>
+                            <p>
+                              {formatRupees(line.taxable_amount || line.unit_price_paise)}
+                              {line.hsn_sac ? ` · HSN ${line.hsn_sac}` : ""}
+                              {` · ${line.gst_rate || edited.gst_rate}%`}
+                            </p>
+                          </div>
+                          <div className="line-itc-badge">
+                            {line.itc?.itcEligibility === "blocked"
+                              ? `Blocked ${formatRupees(line.itc.blockedPaise)}`
+                              : line.itc?.itcEligibility === "rcm_applicable"
+                                ? "RCM"
+                                : `Eligible ${formatRupees(line.itc?.claimablePaise || 0)}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* HSN Code */}
                 <label className="field">
                   <span>HSN / SAC Code</span>
@@ -610,6 +713,26 @@ export default function Scan({ navigate }: Props) {
 
             {/* Right: Summary + Save */}
             <div className="summary-card">
+              {edited.itc && (
+                <div className={`itc-card itc-${edited.itc.itcEligibility}`}>
+                  <div className="itc-kicker">
+                    {edited.itc.itcEligibility === "blocked"
+                      ? "Do not claim this ITC"
+                      : edited.itc.itcEligibility === "rcm_applicable"
+                        ? "RCM — pay in cash first"
+                        : "ITC looks eligible"}
+                  </div>
+                  <div className="itc-money">
+                    {edited.itc.itcEligibility === "blocked"
+                      ? formatRupees(edited.itc.blockedPaise)
+                      : formatRupees(edited.itc.claimablePaise)}
+                  </div>
+                  <p className="itc-copy">{edited.itc.explanation}</p>
+                  {edited.itc.blockedSection && (
+                    <div className="itc-ref">{edited.itc.blockedSection}</div>
+                  )}
+                </div>
+              )}
               <div className="summary-title">Tax Summary</div>
 
               {[
@@ -663,7 +786,7 @@ export default function Scan({ navigate }: Props) {
               </svg>
             </div>
             <h2>Invoice saved!</h2>
-            <p>Purchase invoice register mein add ho gayi.<br />GST calculations mein automatically include ho jayegi.</p>
+            <p>Purchase invoice register mein add ho gayi.<br />ITC decision GSTR-3B compute mein use hogi.</p>
             <div className="done-btns">
               <button className="btn-pri" onClick={reset}>Scan Another Invoice</button>
               <button className="btn-sec" onClick={() => navigate("invoices")}>View Invoices</button>
@@ -918,6 +1041,23 @@ button,input,select{font-family:inherit;outline:none}
   font-weight:800;color:#f97316;
 }
 .review-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.itc-card{border-radius:10px;padding:12px;margin-bottom:8px}
+.itc-eligible{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+.itc-blocked{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.itc-rcm_applicable{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
+.itc-kicker{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.itc-money{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:800}
+.itc-copy{font-size:12px;line-height:1.5;margin-top:6px}
+.itc-ref{font-size:11px;font-weight:700;margin-top:8px}
+.pdf-chip{padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:13px;color:#334155}
+.line-itc-list{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.line-itc-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb}
+.line-itc-row strong{display:block;font-size:13px;color:#111827}
+.line-itc-row p{font-size:12px;color:#6b7280;margin-top:2px}
+.line-itc-badge{font-size:11px;font-weight:800;white-space:nowrap}
+.line-eligible{border-color:#a7f3d0;background:#ecfdf5}
+.line-blocked{border-color:#fecaca;background:#fef2f2}
+.line-rcm_applicable{border-color:#fed7aa;background:#fff7ed}
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media(max-width:840px){

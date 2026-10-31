@@ -45,11 +45,10 @@ initializeEmailClient();
 
 // Email templates  — HTML format mein
 
-function getGSTReturnFiledTemplate(
+function getGSTReturnPreparedTemplate(
   businessName: string,
   returnType: string,
-  taxPeriod: string,
-  arn: string
+  taxPeriod: string
 ): string {
   return `
     <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml">
@@ -67,24 +66,24 @@ function getGSTReturnFiledTemplate(
       <body>
         <div class="container">
           <div class="header">
-            <h1>🎉 GST Return Filed Successfully!</h1>
+            <h1>GST return prepared</h1>
           </div>
 
           <div class="content">
             <p>Hi <strong>${businessName}</strong>,</p>
 
-            <p>Your GST return has been successfully filed with the GST portal.</p>
+            <p>Your GST return pack is ready to share with your CA or upload on the GST portal. KhataGST does not file with GSTN.</p>
 
             <div style="background: #f0f7ff; padding: 15px; border-left: 4px solid #667eea; margin: 15px 0; border-radius: 4px;">
               <p><strong>Return Details:</strong></p>
               <ul style="list-style: none; padding: 0;">
                 <li>📋 Return Type: <strong>${returnType}</strong></li>
                 <li>📅 Tax Period: <strong>${taxPeriod}</strong></li>
-                <li>✅ <span class="success">ARN: ${arn}</span></li>
+                <li>✅ <span class="success">Status: Prepared</span></li>
               </ul>
             </div>
 
-            <p>Please keep this acknowledgment for your records. You can download the complete return summary from your KhataGST dashboard.</p>
+            <p>Download the Excel/CSV from your KhataGST dashboard and keep it with your CA.</p>
 
             <p style="color: #666; font-size: 14px; border-top: 1px solid #e0e0e0; padding-top: 15px;">
               <strong>Need help?</strong> Contact our support team at support@khatagst.com
@@ -291,17 +290,16 @@ export async function sendEmail(
 
 // Specific email senders
 
-export async function sendGSTReturnFiledEmail(
+export async function sendGSTReturnPreparedEmail(
   email: string,
   businessName: string,
   returnType: string,
-  taxPeriod: string,
-  arn: string
+  taxPeriod: string
 ): Promise<void> {
-  const htmlContent = getGSTReturnFiledTemplate(businessName, returnType, taxPeriod, arn);
+  const htmlContent = getGSTReturnPreparedTemplate(businessName, returnType, taxPeriod);
   await sendEmail(
     email,
-    `GST ${returnType} Return Filed Successfully - ARN: ${arn}`,
+    `GST ${returnType} return prepared for ${taxPeriod}`,
     htmlContent
   );
 }

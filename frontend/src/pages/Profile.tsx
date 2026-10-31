@@ -319,8 +319,17 @@ export default function Profile({ navigate, onLogout }: Props) {
                           <path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5"/>
                         </svg>
                       </div>
-                      <strong>Export GSTR</strong>
-                      <span>Excel / CSV download</span>
+                      <strong>GST Returns</strong>
+                      <span>Preview GSTR-1 / 3B</span>
+                    </button>
+                    <button className="action-tile" onClick={() => navigate("pricing")}>
+                      <div className="tile-icon tile-orange">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                      </div>
+                      <strong>Plans & billing</strong>
+                      <span>Upgrade with Razorpay</span>
                     </button>
                     <button className="action-tile" onClick={() => navigate("invoices")}>
                       <div className="tile-icon tile-green">

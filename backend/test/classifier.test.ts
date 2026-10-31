@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { containsTerm, knowledgeService } from "../src/services/knowledgeService.js";
+import { buildItcDecision } from "../src/agents/taxClassifierAgent.js";
 
 test("terms match whole words and plurals only", () => {
   assert.equal(containsTerm("Company car insurance", "car"), true);
@@ -36,4 +37,20 @@ test("ordinary business expenses are not caught by substring matches", () => {
 test("keyword search still finds sections without embeddings", () => {
   const [top] = knowledgeService.keywordSearch("Can I claim ITC on car insurance?");
   assert.equal(top.section_number, "17(5)(a)");
+});
+
+test("ITC decision reports blocked rupees instead of claimable rupees", () => {
+  const blockedLunch = buildItcDecision("Staff lunch during client review", 100000, 18000);
+  assert.equal(blockedLunch.itcEligibility, "blocked");
+  assert.equal(blockedLunch.claimablePaise, 0);
+  assert.equal(blockedLunch.blockedPaise, 18000);
+
+  const eligibleSteel = buildItcDecision("Mild steel sheets for trading stock", 100000, 18000);
+  assert.equal(eligibleSteel.itcEligibility, "eligible");
+  assert.equal(eligibleSteel.claimablePaise, 18000);
+  assert.equal(eligibleSteel.blockedPaise, 0);
+
+  const rcmLegal = buildItcDecision("Advocate legal fees for GST notice", 50000, 9000);
+  assert.equal(rcmLegal.itcEligibility, "rcm_applicable");
+  assert.equal(rcmLegal.claimablePaise, 0);
 });

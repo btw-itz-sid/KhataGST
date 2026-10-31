@@ -6,6 +6,7 @@ import { query } from "../lib/db.js";
 
 // ── Types ─────────────────────────────────────────────────────
 export interface GSTR1Summary {
+  id?: string;
   tax_period: string;        // "2026-03"
   business_id: string;
   b2b: B2BInvoice[];         // GST registered buyers
@@ -20,7 +21,7 @@ export interface GSTR1Summary {
     grand_total: number;
   };
   due_date: string;
-  status: "draft" | "ready_to_file";
+  status: "draft" | "computed";
 }
 
 export interface B2BInvoice {
@@ -154,13 +155,13 @@ export async function computeGSTR1(
   const nextYear = month === 12 ? year + 1 : year;
   const dueDate = `${nextYear}-${String(nextMonth).padStart(2, "0")}-11`;
 
-  // DB mein save karo
-  await query(
+  const saved = await query(
     `INSERT INTO gst_returns 
      (business_id, return_type, tax_period, status, summary_json, due_date)
      VALUES ($1, 'GSTR1', $2, 'computed', $3, $4)
      ON CONFLICT (business_id, return_type, tax_period)
-     DO UPDATE SET summary_json = $3, status = 'computed'`,
+     DO UPDATE SET summary_json = $3, status = 'computed', due_date = $4, updated_at = NOW()
+     RETURNING id`,
     [
       businessId,
       taxPeriod,
@@ -170,13 +171,14 @@ export async function computeGSTR1(
   );
 
   return {
+    id: saved.rows[0]?.id,
     tax_period: taxPeriod,
     business_id: businessId,
     b2b: b2bInvoices,
     b2c: Array.from(b2cMap.values()),
     totals,
     due_date: dueDate,
-    status: totals.total_invoices > 0 ? "ready_to_file" : "draft",
+    status: "computed",
   };
 }
 

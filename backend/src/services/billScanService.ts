@@ -21,6 +21,8 @@ const BILL_EXTRACTION_SCHEMA = {
     igst_amount: { type: "number" },
     total_amount: { type: "number" },
     hsn_code: { type: "string" },
+    item_description: { type: "string" },
+    items: { type: "array" },
     confidence: { type: "number" },
     action: {
       type: "string",
@@ -49,6 +51,18 @@ interface GeminiModelEntry {
   supportedGenerationMethods?: string[];
 }
 
+export interface ExtractedLineItem {
+  description: string;
+  hsn_sac: string;
+  quantity: number;
+  unit_price_paise: number;
+  gst_rate: number;
+  taxable_amount: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+}
+
 export interface ExtractedBillData {
   invoice_number: string;
   vendor_name: string;
@@ -61,8 +75,26 @@ export interface ExtractedBillData {
   igst_amount: number;
   total_amount: number;
   hsn_code: string;
+  item_description: string;
+  items: ExtractedLineItem[];
   confidence: number;
   action: "auto" | "review" | "manual";
+}
+
+export function ensureBillItems(data: ExtractedBillData): ExtractedLineItem[] {
+  if (data.items.length > 0) return data.items;
+  if (!data.taxable_amount) return [];
+  return [{
+    description: data.item_description || "Purchase",
+    hsn_sac: data.hsn_code,
+    quantity: 1,
+    unit_price_paise: data.taxable_amount,
+    gst_rate: data.gst_rate,
+    taxable_amount: data.taxable_amount,
+    cgst_amount: data.cgst_amount,
+    sgst_amount: data.sgst_amount,
+    igst_amount: data.igst_amount,
+  }];
 }
 
 export interface ScanBillResult {
@@ -222,8 +254,26 @@ function normalizeExtractedBillData(payload: unknown): ExtractedBillData {
 
   const source = payload as Record<string, unknown>;
   const confidence = Math.max(0, Math.min(100, normalizeNumber(source.confidence)));
+  const rawItems = Array.isArray(source.items) ? source.items : [];
+  const items: ExtractedLineItem[] = rawItems.map((raw) => {
+    const item = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+    const taxable = Math.round(normalizeNumber(item.taxable_amount ?? item.taxable_value ?? 0));
+    const qty = normalizeNumber(item.quantity) || 1;
+    const unit = Math.round(normalizeNumber(item.unit_price_paise ?? item.unit_price ?? (qty ? taxable / qty : taxable)));
+    return {
+      description: normalizeString(item.description || item.item_description),
+      hsn_sac: normalizeString(item.hsn_sac || item.hsn_code),
+      quantity: qty,
+      unit_price_paise: unit,
+      gst_rate: normalizeNumber(item.gst_rate),
+      taxable_amount: taxable || Math.round(qty * unit),
+      cgst_amount: Math.round(normalizeNumber(item.cgst_amount)),
+      sgst_amount: Math.round(normalizeNumber(item.sgst_amount)),
+      igst_amount: Math.round(normalizeNumber(item.igst_amount)),
+    };
+  }).filter((item) => item.description || item.taxable_amount > 0);
 
-  return {
+  const header: ExtractedBillData = {
     invoice_number: normalizeString(source.invoice_number),
     vendor_name: normalizeString(source.vendor_name),
     vendor_gstin: normalizeString(source.vendor_gstin).toUpperCase(),
@@ -235,9 +285,16 @@ function normalizeExtractedBillData(payload: unknown): ExtractedBillData {
     igst_amount: Math.round(normalizeNumber(source.igst_amount)),
     total_amount: Math.round(normalizeNumber(source.total_amount)),
     hsn_code: normalizeString(source.hsn_code),
+    item_description: normalizeString(source.item_description || source.description),
+    items,
     confidence,
     action: normalizeAction(source.action, confidence),
   };
+  header.items = ensureBillItems(header);
+  if (!header.item_description && header.items[0]?.description) {
+    header.item_description = header.items[0].description;
+  }
+  return header;
 }
 
 function parseExtractedBillData(rawText: string): ExtractedBillData {
@@ -275,6 +332,8 @@ export function createManualReviewFallback(reason: string): ScanBillResult {
       igst_amount: 0,
       total_amount: 0,
       hsn_code: "",
+      item_description: "",
+      items: [],
       confidence: 0,
       action: "manual",
     },
@@ -337,6 +396,20 @@ Return ONLY a valid JSON object with NO extra text, NO markdown, NO backticks:
   "igst_amount": IGST amount in PAISE (0 if CGST/SGST applies),
   "total_amount": grand total in PAISE,
   "hsn_code": "HSN or SAC code, empty string if not found",
+  "item_description": "main goods or service description from line items, empty string if not found",
+  "items": [
+    {
+      "description": "line item description",
+      "hsn_sac": "HSN or SAC",
+      "quantity": 1,
+      "unit_price_paise": 0,
+      "gst_rate": 18,
+      "taxable_amount": 0,
+      "cgst_amount": 0,
+      "sgst_amount": 0,
+      "igst_amount": 0
+    }
+  ],
   "confidence": confidence score 0-100,
   "action": "auto" if confidence > 85, "review" if 65-85, "manual" if below 65
 }
@@ -345,6 +418,7 @@ Important rules:
 - All money values must be in PAISE (1 rupee = 100 paise)
 - If intra-state: fill cgst_amount and sgst_amount, igst_amount = 0
 - If inter-state: fill igst_amount, cgst_amount = 0, sgst_amount = 0
+- Always fill "items" with every line on the bill. Header totals must equal the sum of items.
 - Return ONLY the JSON, nothing else`;
 
   const modelCandidates = await resolveGeminiModelCandidates();

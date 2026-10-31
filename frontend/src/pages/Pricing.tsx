@@ -103,7 +103,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Is there a free trial for Pro?",
-    a: "Yes — every new account gets a 14-day Pro trial with full access to unlimited scans.",
+    a: "Start on the free plan. Upgrade with Razorpay when you need more scans and return prep.",
   },
   {
     q: "Do you offer annual billing?",

@@ -2,10 +2,20 @@
 // AI CA Tax & Expense Classifier Agent
 // Uses Gemini Multimodal & Statutory Knowledge Engine to classify expenses and Section 17(5) blocked credits
 
-import { knowledgeService } from "../services/knowledgeService.js";
+import { containsTerm, knowledgeService } from "../services/knowledgeService.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+
+const RCM_TERMS = [
+  "advocate",
+  "lawyer",
+  "legal fee",
+  "gta",
+  "goods transport",
+  "reverse charge",
+  "rcm",
+];
 
 export interface ExpenseClassificationResult {
   itemName: string;
@@ -18,6 +28,76 @@ export interface ExpenseClassificationResult {
   statutoryReference: string;
 }
 
+export interface ItcDecision extends ExpenseClassificationResult {
+  taxableAmountPaise: number;
+  taxAmountPaise: number;
+  claimablePaise: number;
+  blockedPaise: number;
+}
+
+function looksLikeRcm(description: string): boolean {
+  return RCM_TERMS.some((term) => containsTerm(description, term));
+}
+
+export function buildItcDecision(
+  description: string,
+  taxableAmountPaise = 0,
+  taxAmountPaise = 0
+): ItcDecision {
+  const itemName = description.trim() || "Purchase";
+  const taxable = Number.isFinite(taxableAmountPaise) ? Math.max(0, Math.round(taxableAmountPaise)) : 0;
+  const tax = Number.isFinite(taxAmountPaise) ? Math.max(0, Math.round(taxAmountPaise)) : 0;
+
+  if (looksLikeRcm(itemName)) {
+    return {
+      itemName,
+      taxableAmount: taxable / 100,
+      itcEligibility: "rcm_applicable",
+      confidence: 0.9,
+      explanation:
+        "This looks like a reverse-charge supply (GTA, legal services, etc.). Pay the GST in cash first — do not claim ITC automatically.",
+      recommendedAccountingLedger: "RCM Payable / Eligible after payment",
+      statutoryReference: "CGST Act 2017 Sec 9(3)/9(4)",
+      taxableAmountPaise: taxable,
+      taxAmountPaise: tax,
+      claimablePaise: 0,
+      blockedPaise: 0,
+    };
+  }
+
+  const statutoryCheck = knowledgeService.checkBlockedCredit(itemName);
+  if (statutoryCheck.isBlocked) {
+    return {
+      itemName,
+      taxableAmount: taxable / 100,
+      itcEligibility: "blocked",
+      blockedSection: statutoryCheck.section,
+      confidence: 0.95,
+      explanation: statutoryCheck.reason || "This expense is blocked from ITC under Section 17(5).",
+      recommendedAccountingLedger: "Staff Welfare / Ineligible Expense",
+      statutoryReference: statutoryCheck.statutoryRef || "CGST Act 2017 Sec 17(5)",
+      taxableAmountPaise: taxable,
+      taxAmountPaise: tax,
+      claimablePaise: 0,
+      blockedPaise: tax,
+    };
+  }
+
+  return {
+    itemName,
+    taxableAmount: taxable / 100,
+    itcEligibility: "eligible",
+    confidence: 0.9,
+    explanation: statutoryCheck.reason || "Eligible for ITC under Section 16(1).",
+    recommendedAccountingLedger: "Direct Business Expense",
+    statutoryReference: statutoryCheck.statutoryRef || "CGST Act 2017 Sec 16(1)",
+    taxableAmountPaise: taxable,
+    taxAmountPaise: tax,
+    claimablePaise: tax,
+    blockedPaise: 0,
+  };
+}
+
 export class TaxClassifierAgent {
   /**
    * Classify an expense description for GST ITC eligibility & accounting ledger
@@ -27,10 +107,6 @@ export class TaxClassifierAgent {
     taxableAmount: number = 0,
     vendorGstin?: string
   ): Promise<ExpenseClassificationResult> {
-    // 1. Check deterministic statutory rules first
-    const statutoryCheck = knowledgeService.checkBlockedCredit(itemDescription);
-
-    // 2. If Gemini API is available, perform contextual AI reasoning
     if (GEMINI_API_KEY) {
       try {
         const prompt = `You are a Senior Indian Chartered Accountant (CA) and GST specialist.
@@ -73,15 +149,16 @@ Return a strict JSON object matching this schema:
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
             const parsed = JSON.parse(rawText);
+            const fallback = buildItcDecision(itemDescription, Math.round(taxableAmount * 100), 0);
             return {
               itemName: itemDescription,
               taxableAmount,
-              itcEligibility: parsed.itcEligibility || (statutoryCheck.isBlocked ? "blocked" : "eligible"),
-              blockedSection: parsed.blockedSection || statutoryCheck.section,
-              confidence: parsed.confidence || 0.9,
-              explanation: parsed.explanation || statutoryCheck.reason || "Processed via AI CA Tax Engine",
-              recommendedAccountingLedger: parsed.recommendedAccountingLedger || "General Expense",
-              statutoryReference: parsed.statutoryReference || statutoryCheck.statutoryRef || "CGST Act 2017",
+              itcEligibility: parsed.itcEligibility || fallback.itcEligibility,
+              blockedSection: parsed.blockedSection || fallback.blockedSection,
+              confidence: parsed.confidence || fallback.confidence,
+              explanation: parsed.explanation || fallback.explanation,
+              recommendedAccountingLedger: parsed.recommendedAccountingLedger || fallback.recommendedAccountingLedger,
+              statutoryReference: parsed.statutoryReference || fallback.statutoryReference,
             };
           }
         }
@@ -90,16 +167,16 @@ Return a strict JSON object matching this schema:
       }
     }
 
-    // Deterministic rule fallback
+    const fallback = buildItcDecision(itemDescription, Math.round(taxableAmount * 100), 0);
     return {
-      itemName: itemDescription,
+      itemName: fallback.itemName,
       taxableAmount,
-      itcEligibility: statutoryCheck.isBlocked ? "blocked" : "eligible",
-      blockedSection: statutoryCheck.section,
-      confidence: 0.95,
-      explanation: statutoryCheck.reason || "Eligible for ITC under Section 16(1)",
-      recommendedAccountingLedger: statutoryCheck.isBlocked ? "Staff Welfare / Ineligible Expense" : "Direct Business Expense",
-      statutoryReference: statutoryCheck.statutoryRef || "CGST Act 2017 Sec 16(1)",
+      itcEligibility: fallback.itcEligibility,
+      blockedSection: fallback.blockedSection,
+      confidence: fallback.confidence,
+      explanation: fallback.explanation,
+      recommendedAccountingLedger: fallback.recommendedAccountingLedger,
+      statutoryReference: fallback.statutoryReference,
     };
   }
 

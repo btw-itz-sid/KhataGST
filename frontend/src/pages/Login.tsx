@@ -46,7 +46,7 @@ const FEATURES = [
         <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
       </svg>
     ),
-    text: "Automatic GSTR-1 & ITR filing prep",
+    text: "GSTR-1 & GSTR-3B preview for your CA",
   },
   {
     icon: (
@@ -244,10 +244,10 @@ export default function Login({ onSuccess }: Props) {
           <div className="brand-content">
             <p className="brand-eyebrow">GST Compliance Platform</p>
             <h1 className="brand-headline">
-              Smart GST filing<br />for Indian MSMEs.
+              GST books and return prep<br />for Indian MSMEs.
             </h1>
             <p className="brand-desc">
-              From invoice capture to GSTR export — manage your entire GST
+              From invoice capture to GSTR preview — manage your GST
               compliance workflow in one clean, fast workspace.
             </p>
 

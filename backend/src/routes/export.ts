@@ -3,7 +3,7 @@
 // Fix: business ownership verify karo pehle (koi bhi doosre ka data download na kar sake)
 
 import { FastifyInstance } from "fastify";
-import { exportGSTR1Excel, exportInvoicesCSV } from "../services/exportService.js";
+import { exportCaPack, exportGSTR1Excel, exportInvoicesCSV } from "../services/exportService.js";
 import { query } from "../lib/db.js";
 import { z } from "zod";
 
@@ -111,6 +111,47 @@ export async function exportRoutes(app: FastifyInstance) {
       return reply.status(500).send({
         success: false,
         error: { code: "EXPORT_FAILED", message: err?.message ?? "CSV export fail ho gaya" },
+      });
+    }
+  });
+
+  // GET /api/v1/export/json — CA share pack
+  app.get("/json", {
+    preHandler: [app.authenticate],
+  }, async (request, reply) => {
+    const schema = z.object({
+      business_id: z.string().uuid(),
+      tax_period: z.string().regex(/^\d{4}-\d{2}$/),
+    });
+
+    const parsed = schema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "INVALID_INPUT", message: "business_id aur tax_period do (format: YYYY-MM)" },
+      });
+    }
+
+    const { userId } = request.user as any;
+    const owned = await isBusinessOwner(parsed.data.business_id, userId);
+    if (!owned) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Is business ka data access karne ki permission nahi hai" },
+      });
+    }
+
+    try {
+      const pack = await exportCaPack(parsed.data.business_id, parsed.data.tax_period);
+      const filename = `KhataGST_CA_pack_${parsed.data.tax_period}.json`;
+      reply
+        .header("Content-Type", "application/json; charset=utf-8")
+        .header("Content-Disposition", `attachment; filename="${filename}"`)
+        .send(pack);
+    } catch (err: any) {
+      return reply.status(500).send({
+        success: false,
+        error: { code: "EXPORT_FAILED", message: err?.message ?? "JSON export fail ho gaya" },
       });
     }
   });

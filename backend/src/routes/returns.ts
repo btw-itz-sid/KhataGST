@@ -3,7 +3,15 @@ import { FastifyInstance } from "fastify";
 import { computeGSTR1, formatPaise } from "../services/gstr1Service.js";
 import { z } from "zod";
 import { query as dbQuery } from "../lib/db.js";
-import { sendGSTReturnFiledEmail } from "../services/emailService.js";
+import { sendGSTReturnPreparedEmail } from "../services/emailService.js";
+
+async function assertBusinessOwner(businessId: string, userId: string) {
+  const result = await dbQuery(
+    "SELECT id FROM businesses WHERE id = $1 AND owner_id = $2",
+    [businessId, userId]
+  );
+  return result.rows.length > 0;
+}
 
 export async function returnRoutes(app: FastifyInstance) {
 
@@ -25,6 +33,13 @@ export async function returnRoutes(app: FastifyInstance) {
     }
 
     const { business_id, tax_period } = parsed.data;
+    const { userId } = request.user as any;
+    if (!(await assertBusinessOwner(business_id, userId))) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Is business ka access nahi hai" },
+      });
+    }
     const gstr1 = await computeGSTR1(business_id, tax_period);
 
     return reply.send({
@@ -64,6 +79,13 @@ export async function returnRoutes(app: FastifyInstance) {
       });
     }
 
+    const { userId } = request.user as any;
+    if (!(await assertBusinessOwner(parsed.data.business_id, userId))) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Is business ka access nahi hai" },
+      });
+    }
     const { computeGSTR3B } = await import("../services/gstr3bService.js");
     const gstr3b = await computeGSTR3B(
       parsed.data.business_id,
@@ -123,7 +145,7 @@ export async function returnRoutes(app: FastifyInstance) {
       const returnResult = await dbQuery(
         `SELECT r.* FROM gst_returns r
          JOIN businesses b ON r.business_id = b.id
-         WHERE r.id = $1 AND r.return_type = 'GSTR-1' AND b.owner_id = $2`,
+         WHERE r.id = $1 AND REPLACE(r.return_type, '-', '') = 'GSTR1' AND b.owner_id = $2`,
         [id, userId]
       );
 
@@ -194,7 +216,7 @@ export async function returnRoutes(app: FastifyInstance) {
       const returnResult = await dbQuery(
         `SELECT r.* FROM gst_returns r
          JOIN businesses b ON r.business_id = b.id
-         WHERE r.id = $1 AND r.return_type = 'GSTR-3B' AND b.owner_id = $2`,
+         WHERE r.id = $1 AND REPLACE(r.return_type, '-', '') = 'GSTR3B' AND b.owner_id = $2`,
         [id, userId]
       );
 
@@ -236,16 +258,13 @@ export async function returnRoutes(app: FastifyInstance) {
     }
   });
 
-  // POST /api/v1/returns/:id/file
-  // GST return file karo (mark as filed, generate ARN and send email notification)
-  app.post("/:id/file", {
-    preHandler: [app.authenticate],
-  }, async (request, reply) => {
+  // POST /api/v1/returns/:id/prepare
+  // Mark return as prepared for GST portal / CA. Does NOT file on GSTN.
+  async function markPrepared(request: any, reply: any) {
     const { userId } = request.user as any;
     const { id } = request.params as any;
 
     try {
-      // Return record aur business/owner verify karo
       const returnResult = await dbQuery(
         `SELECT r.*, b.legal_name FROM gst_returns r
          JOIN businesses b ON r.business_id = b.id
@@ -262,28 +281,25 @@ export async function returnRoutes(app: FastifyInstance) {
 
       const returnRecord = returnResult.rows[0];
 
-      if (returnRecord.status === "filed") {
+      if (returnRecord.status === "prepared" || returnRecord.status === "filed") {
         return reply.status(400).send({
           success: false,
-          error: { code: "ALREADY_FILED", message: "Yeh return already file ho chuka hai" },
+          error: {
+            code: "ALREADY_PREPARED",
+            message: "Yeh return already prepared hai",
+          },
         });
       }
 
-      // Generate unique random ARN (format: AA + 13 digits)
-      const arn = `AA${Math.floor(1000000000000 + Math.random() * 9000000000000)}`;
-
-      // Update DB to filed
-      await dbQuery(
+      const updated = await dbQuery(
         `UPDATE gst_returns
-         SET status = 'filed',
-             arn = $1,
-             filed_at = NOW(),
+         SET status = 'prepared',
              updated_at = NOW()
-         WHERE id = $2`,
-        [arn, id]
+         WHERE id = $1
+         RETURNING id, status, tax_period, return_type, due_date`,
+        [id]
       );
 
-      // Fetch user's email for notification
       const userResult = await dbQuery(
         "SELECT email FROM users WHERE id = $1",
         [userId]
@@ -291,27 +307,28 @@ export async function returnRoutes(app: FastifyInstance) {
       const email = userResult.rows[0]?.email;
 
       if (email) {
-        // Send email non-blocking
-        sendGSTReturnFiledEmail(
+        sendGSTReturnPreparedEmail(
           email,
           returnRecord.legal_name,
           returnRecord.return_type,
-          returnRecord.tax_period,
-          arn
-        ).catch((e) => console.warn("Filing email send failed:", e?.message));
+          returnRecord.tax_period
+        ).catch((e) => console.warn("Prepare email send failed:", e?.message));
       }
 
       return reply.send({
         success: true,
-        message: "GST Return filed successfully",
-        arn,
-        filed_at: new Date().toISOString(),
+        message: "Return marked as prepared for GST portal. KhataGST does not file with GSTN.",
+        return: updated.rows[0],
       });
     } catch (err: any) {
       return reply.status(500).send({
         success: false,
-        error: { code: "SERVER_ERROR", message: err?.message ?? "Filing process failed" },
+        error: { code: "SERVER_ERROR", message: err?.message ?? "Prepare failed" },
       });
     }
-  });
+  }
+
+  app.post("/:id/prepare", { preHandler: [app.authenticate] }, markPrepared);
+  // Old /file path now prepares too — never invent an ARN
+  app.post("/:id/file", { preHandler: [app.authenticate] }, markPrepared);
 }

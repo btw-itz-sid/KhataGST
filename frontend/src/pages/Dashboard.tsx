@@ -17,8 +17,9 @@ type GstStatus = "matched" | "pending" | "unmatched";
 interface DashboardData {
   totalSales: number;       // is mahine ki total sales (paise mein)
   totalPurchases: number;   // is mahine ki total purchases (paise mein)
-  itcAvailable: number;     // Input Tax Credit jo milega (paise mein)
-  taxPayable: number;       // jo GST bharna hai ITC ke baad (paise mein)
+  itcAvailable: number;     // Eligible ITC jo claim kar sakte ho (paise)
+  itcBlocked: number;       // Section 17(5) blocked ITC (paise)
+  taxPayable: number;       // jo GST bharna hai eligible ITC ke baad (paise)
   gstr1DueDate: string;     // GSTR-1 ki due date
   gstr3bDueDate: string;    // GSTR-3B ki due date
   recentInvoices: RecentInvoice[];  // last 5 invoices
@@ -50,6 +51,7 @@ interface RawInvoice {
   cgst_amount?: number;
   sgst_amount?: number;
   igst_amount?: number;
+  itc_eligibility?: string;
 }
 
 // Returns ka data (due date nikalne ke liye)
@@ -64,7 +66,7 @@ interface Props {
   onLogout: () => void;
 }
 
-import { BASE_URL } from "../lib/api";
+import { apiFetch } from "../lib/api";
 
 // ── Helper: Paise ko readable rupees mein convert karo ─────────────────────
 function formatRupees(paise: number): string {
@@ -135,10 +137,8 @@ function calcHealthScore(data: DashboardData): { score: number; label: string; c
   else if (days3b <= 3) score -= 15;
   else if (days3b <= 7) score -= 5;
 
-  // Tax liability zyada hai toh score ghata
   if (data.taxPayable > data.itcAvailable * 2) score -= 10;
-
-  // Unmatched invoices hain toh score ghata
+  if (data.itcBlocked > 0) score -= 5;
   if (data.recentInvoices.some((i) => i.gst_status === "unmatched")) score -= 10;
 
   // 0-100 ke beech rakho
@@ -183,15 +183,9 @@ export default function Dashboard({ navigate, onLogout }: Props) {
     async function fetchDashboard() {
       try {
         const [businessRes, invoiceRes, returnsRes] = await Promise.all([
-          fetch(`${BASE_URL}/businesses/${businessId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${BASE_URL}/invoices?business_id=${businessId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${BASE_URL}/returns?business_id=${businessId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          apiFetch(`/businesses/${businessId}`),
+          apiFetch(`/invoices?business_id=${businessId}&limit=100`),
+          apiFetch(`/returns?business_id=${businessId}`),
         ]);
 
         // Business info se naam update karo
@@ -223,17 +217,17 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           ? returnsPayload?.returns ?? returnsPayload?.data
           : [];
 
-        // Totals calculate karo
-        let totalSales = 0, totalPurchases = 0, itcAvailable = 0, taxPayable = 0;
+        let totalSales = 0, totalPurchases = 0, itcAvailable = 0, itcBlocked = 0, outwardTax = 0;
         for (const inv of rawInvoices) {
           const taxable = Number(inv.taxable_value ?? 0);
           const tax = Number(inv.cgst_amount ?? 0) + Number(inv.sgst_amount ?? 0) + Number(inv.igst_amount ?? 0);
           if (inv.invoice_type === "sale") {
             totalSales += taxable;
-            taxPayable += tax;
+            outwardTax += tax;
           } else {
             totalPurchases += taxable;
-            itcAvailable += tax;
+            if (inv.itc_eligibility === "blocked") itcBlocked += tax;
+            else if (inv.itc_eligibility !== "rcm_applicable") itcAvailable += tax;
           }
         }
 
@@ -251,11 +245,12 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           totalSales,
           totalPurchases,
           itcAvailable,
-          taxPayable: Math.max(0, taxPayable - itcAvailable),
+          itcBlocked,
+          taxPayable: Math.max(0, outwardTax - itcAvailable),
           gstr1DueDate: gstr1?.due_date || dd11,
           gstr3bDueDate: gstr3b?.due_date || dd20,
           recentInvoices: invoices.slice(0, 5),
-          totalInvoices: invoices.length,
+          totalInvoices: Number(invoicePayload?.pagination?.total ?? invoices.length),
         });
         setError(null);
       } catch (err) {
@@ -336,74 +331,66 @@ export default function Dashboard({ navigate, onLogout }: Props) {
                 : `${d.totalInvoices} invoice${d.totalInvoices !== 1 ? "s" : ""} tracked this period.`}
             </p>
             <div className="hero-btns">
-              <button className="btn-pri" onClick={() => navigate("scan")}>
-                + Scan Invoice
+              <button className="btn-pri" onClick={() => navigate("invoices")}>
+                + Create Sale
               </button>
-              <button className="btn-out" onClick={() => navigate("invoices")}>
-                View All Invoices
+              <button className="btn-out" onClick={() => navigate("scan")}>
+                Scan Purchase
               </button>
             </div>
           </div>
-          {/* GST Health Score ring */}
           <div className="hero-right">
             <div className="health-card">
-              <div className="health-label">GST Health</div>
-              <div className="health-score" style={{ color: health.color }}>
-                {health.score}
+              <div className="health-label">ITC this month</div>
+              <div className="health-score" style={{ color: "#059669" }}>
+                {formatRupees(d.itcAvailable)}
               </div>
               <div className="health-badge" style={{ color: health.color }}>
-                {health.label}
+                {health.label} · {health.score}
               </div>
               <div className="health-checks">
                 <div className="hcheck">
-                  <span className={g1.tone === "safe" ? "dot-ok" : "dot-warn"} />
-                  GSTR-1: {g1.label}
+                  <span className={d.itcBlocked > 0 ? "dot-warn" : "dot-ok"} />
+                  Blocked: {formatRupees(d.itcBlocked)}
                 </div>
                 <div className="hcheck">
                   <span className={g3b.tone === "safe" ? "dot-ok" : "dot-warn"} />
-                  GSTR-3B: {g3b.label}
+                  Payable: {d.taxPayable > 0 ? formatRupees(d.taxPayable) : "Nil"}
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ── 4 Metric Cards ───────────────────────────────────────────── */}
         <section className="stat-grid">
-          {/* Total Sales */}
           <div className="stat-card">
             <div className="stat-icon stat-icon-green">↑</div>
-            <div className="stat-label">Total Sales</div>
-            <div className="stat-value stat-green">{formatRupees(d.totalSales)}</div>
-            <div className="stat-sub">Taxable outward supply</div>
+            <div className="stat-label">ITC Claimable</div>
+            <div className="stat-value stat-green">{formatRupees(d.itcAvailable)}</div>
+            <div className="stat-sub">Eligible purchases only</div>
           </div>
 
-          {/* Total Purchases */}
           <div className="stat-card">
-            <div className="stat-icon stat-icon-blue">↓</div>
-            <div className="stat-label">Total Purchases</div>
-            <div className="stat-value stat-blue">{formatRupees(d.totalPurchases)}</div>
-            <div className="stat-sub">Taxable inward supply</div>
+            <div className="stat-icon stat-icon-amber">!</div>
+            <div className="stat-label">ITC Blocked</div>
+            <div className="stat-value stat-amber">{formatRupees(d.itcBlocked)}</div>
+            <div className="stat-sub">Section 17(5) — mat claim karo</div>
           </div>
 
-          {/* ITC Available */}
-          <div className="stat-card">
-            <div className="stat-icon stat-icon-violet">◈</div>
-            <div className="stat-label">ITC Available</div>
-            <div className="stat-value stat-violet">{formatRupees(d.itcAvailable)}</div>
-            <div className="stat-sub">Input tax credit</div>
-          </div>
-
-          {/* Net GST Payable */}
           <div className="stat-card">
             <div className={`stat-icon ${d.taxPayable > 0 ? "stat-icon-amber" : "stat-icon-green"}`}>₹</div>
             <div className="stat-label">Net GST Payable</div>
             <div className={`stat-value ${d.taxPayable > 0 ? "stat-amber" : "stat-green"}`}>
               {d.taxPayable > 0 ? formatRupees(d.taxPayable) : "Nil"}
             </div>
-            <div className="stat-sub">
-              {d.taxPayable > 0 ? "After ITC offset" : "ITC covers liability"}
-            </div>
+            <div className="stat-sub">After eligible ITC</div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon stat-icon-blue">↓</div>
+            <div className="stat-label">Purchases</div>
+            <div className="stat-value stat-blue">{formatRupees(d.totalPurchases)}</div>
+            <div className="stat-sub">Sales {formatRupees(d.totalSales)}</div>
           </div>
         </section>
 
@@ -416,10 +403,10 @@ export default function Dashboard({ navigate, onLogout }: Props) {
             <div className="deadline-date">{formatDate(d.gstr1DueDate)}</div>
             <span className={`deadline-pill ${g1.tone}`}>{g1.label}</span>
             <p className="deadline-desc">
-              File all outward B2B/B2C supply details before this date.
+              Preview outward B2B/B2C supplies and prepare a pack for your CA.
             </p>
             <button className="deadline-btn" onClick={() => navigate("export")}>
-              Prepare Export
+              Preview GSTR-1
             </button>
           </div>
 
@@ -430,10 +417,10 @@ export default function Dashboard({ navigate, onLogout }: Props) {
             <div className="deadline-date">{formatDate(d.gstr3bDueDate)}</div>
             <span className={`deadline-pill ${g3b.tone}`}>{g3b.label}</span>
             <p className="deadline-desc">
-              Pay your net GST liability after adjusting ITC.
+              See net GST after eligible ITC. Blocked 17(5) credit is excluded.
             </p>
             <button className="deadline-btn" onClick={() => navigate("export")}>
-              View Summary
+              Preview GSTR-3B
             </button>
           </div>
 

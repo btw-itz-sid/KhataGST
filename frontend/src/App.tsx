@@ -8,7 +8,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Admin from "./pages/Admin";
 import Dashboard from "./pages/Dashboard";
-import Export from "./pages/Export";
+import Returns from "./pages/Returns";
 import GSTRates from "./pages/GSTRates";
 import Invoices from "./pages/Invoices";
 import Login from "./pages/Login";
@@ -27,7 +27,7 @@ import {
   setBusinessContext,
   type StoredBusinessContext,
 } from "./lib/session";
-import { BASE_URL } from "./lib/api";
+import { BASE_URL, UNAUTHORIZED_EVENT } from "./lib/api";
 
 // App ke andar sabhi possible routes
 type Route =
@@ -137,7 +137,7 @@ export function BottomNav({
     },
     {
       route: "export",
-      label: "Export",
+      label: "Returns",
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 4v10"/>
@@ -252,8 +252,15 @@ export default function App() {
 
     hydrateSession();
 
-    // Cleanup — agar component unmount ho jaaye
-    return () => { cancelled = true; };
+    function onUnauthorized() {
+      if (!cancelled) setRoute("login");
+    }
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    };
   }, []);
 
   // ── Navigate function — auth gaurd ke saath ───────────────────────────
@@ -340,7 +347,7 @@ export default function App() {
   }
 
   // Login aur onboarding pe bottom nav nahi dikhana, admin aur gst-rates pe bhi nahi
-  const showNav = route !== "login" && route !== "onboarding" && route !== "admin" && route !== "gst-rates";
+  const showNav = route !== "login" && route !== "onboarding" && route !== "admin" && route !== "gst-rates" && route !== "pricing";
 
   return (
     // Bottom nav ke liye neeche padding do
@@ -382,7 +389,7 @@ export default function App() {
 
       {/* ── GSTR Export ───────────────────────────────────────────── */}
       {route === "export" && (
-        <Export navigate={navigate} />
+        <Returns navigate={navigate} />
       )}
 
       {/* ── Profile / Settings ────────────────────────────────────── */}

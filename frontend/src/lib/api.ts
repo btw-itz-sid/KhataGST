@@ -1,8 +1,7 @@
-// frontend/src/lib/api.ts
-// API utility functions — centralized BASE_URL and error handling
+import { clearSession, getToken } from "./session";
 
-// ✅ Uses VITE_API_BASE_URL env var instead of hardcoded value
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+export const UNAUTHORIZED_EVENT = "khatagst:unauthorized";
 
 type ApiRecord = Record<string, unknown>;
 
@@ -44,29 +43,46 @@ export function getApiErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-/**
- * Authenticated fetch helper — attaches JWT token and handles 401
- */
+function handleUnauthorized(status: number) {
+  if (status !== 401) return;
+  clearSession();
+  window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+}
+
 export async function apiFetch(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const token = localStorage.getItem("khatagst_token") || "";
+  const token = getToken();
   const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
   if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
-  // Don't set Content-Type for FormData (browser sets boundary)
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
 
-  return fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers,
   });
+
+  handleUnauthorized(response.status);
+  return response;
+}
+
+export async function apiJson<T = unknown>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await apiFetch(path, options);
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(getApiErrorMessage(payload, "Request fail ho gaya."));
+  }
+  return payload as T;
 }

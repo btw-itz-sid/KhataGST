@@ -1,15 +1,22 @@
 // src/routes/invoices.ts
 import { FastifyInstance } from "fastify";
 import * as db from "../lib/db";
+import { calculateTax } from "../services/gstEngine.js";
 
-function calculateTax(taxable_paise: number, gst_rate: number, isInterState: boolean) {
-  const tax_paise = Math.round((taxable_paise * gst_rate) / 100);
-  if (isInterState) {
-    return { cgst_paise: 0, sgst_paise: 0, igst_paise: tax_paise };
-  } else {
-    const half = Math.round(tax_paise / 2);
-    return { cgst_paise: half, sgst_paise: half, igst_paise: 0 };
+function toLineTax(taxable_paise: number, gst_rate: number, isInterState: boolean) {
+  const tax = calculateTax(taxable_paise, gst_rate, isInterState);
+  return {
+    cgst_paise: tax.cgst,
+    sgst_paise: tax.sgst,
+    igst_paise: tax.igst,
+  };
+}
+
+function normalizeItcEligibility(value: unknown): "eligible" | "blocked" | "rcm_applicable" {
+  if (value === "blocked" || value === "rcm_applicable" || value === "eligible") {
+    return value;
   }
+  return "eligible";
 }
 
 function normalizePaise(value: unknown): number {
@@ -44,6 +51,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       due_date,
       invoice_type = "sale",
       place_of_supply,
+      itc_eligibility,
       items,
       notes,
     } = request.body as any;
@@ -82,7 +90,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       const unit_price_paise = normalizePaise(item.unit_price_paise ?? item.unit_price);
       const gst_rate = Number(item.gst_rate ?? 0);
       const taxable = Math.round(quantity * unit_price_paise);
-      const tax = calculateTax(taxable, Number.isFinite(gst_rate) ? gst_rate : 0, isInterState);
+      const tax = toLineTax(taxable, Number.isFinite(gst_rate) ? gst_rate : 0, isInterState);
       subtotal_paise += taxable;
       total_cgst += tax.cgst_paise;
       total_sgst += tax.sgst_paise;
@@ -94,6 +102,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
         unit_price_paise,
         gst_rate: Number.isFinite(gst_rate) ? gst_rate : 0,
         taxable_paise: taxable,
+        itc_eligibility: normalizeItcEligibility(item.itc_eligibility ?? itc_eligibility),
         ...tax,
       };
     });
@@ -146,17 +155,24 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
         }
       }
 
+      const resolvedItc = invoice_type === "purchase"
+        ? normalizeItcEligibility(itc_eligibility)
+        : "eligible";
+      const resolvedPlaceOfSupply = String(inferredPlaceOfSupply ?? "").trim().slice(0, 2) || null;
+
       const invResult = await client.query(
         `INSERT INTO invoices
            (business_id, party_id, invoice_type, invoice_number, invoice_date, due_date,
-            taxable_value, cgst_amount, sgst_amount, igst_amount, total_amount, is_igst, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            taxable_value, cgst_amount, sgst_amount, igst_amount, total_amount, is_igst, notes,
+            place_of_supply, itc_eligibility)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
          RETURNING *`,
         [
           business_id, resolvedPartyId, invoice_type, invoice_number,
           invoice_date, due_date ?? null,
           subtotal_paise, total_cgst, total_sgst, total_igst, total_paise,
           isInterState, notes ?? null,
+          resolvedPlaceOfSupply, resolvedItc,
         ]
       );
       const invoice = invResult.rows[0];
@@ -165,12 +181,13 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
         await client.query(
           `INSERT INTO invoice_items
              (invoice_id, description, hsn_sac, quantity, unit_price, gst_rate,
-              taxable_value, cgst_amount, sgst_amount, igst_amount)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+              taxable_value, cgst_amount, sgst_amount, igst_amount, itc_eligibility)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
           [
             invoice.id, item.description, item.hsn_sac ?? null,
             item.quantity, item.unit_price_paise, String(item.gst_rate),
             item.taxable_paise, item.cgst_paise, item.sgst_paise, item.igst_paise,
+            item.itc_eligibility,
           ]
         );
       }
@@ -407,28 +424,126 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     reply.send({ success: true, invoice: invResult.rows[0], items: itemsResult.rows });
   });
 
-  // PUT /api/v1/invoices/:id
+  // PUT /api/v1/invoices/:id — notes, dates, party, line items, ITC
   fastify.put("/:id", async (request, reply) => {
     const userId = (request.user as any).userId;
     const { id } = request.params as any;
-    const { notes, due_date } = request.body as any;
+    const body = request.body as any;
 
-    const result = await db.query(
-      `UPDATE invoices
-       SET notes = COALESCE($1, notes),
-           due_date = COALESCE($2, due_date),
-           updated_at = NOW()
-       WHERE id = $3
-         AND is_cancelled = FALSE
-         AND business_id IN (SELECT id FROM businesses WHERE owner_id = $4)
-       RETURNING *`,
-      [notes, due_date, id, userId]
+    const existing = await db.query(
+      `SELECT i.*, b.state_code, b.gstin as business_gstin
+       FROM invoices i
+       JOIN businesses b ON i.business_id = b.id
+       WHERE i.id = $1 AND b.owner_id = $2 AND i.is_cancelled = FALSE`,
+      [id, userId]
     );
-
-    if (result.rows.length === 0) {
+    if (existing.rows.length === 0) {
       return reply.status(404).send({ error: "Invoice nahi mila ya unauthorized" });
     }
-    reply.send({ success: true, invoice: result.rows[0] });
+
+    const invoice = existing.rows[0];
+    const client = await db.getClient();
+    try {
+      await client.query("BEGIN");
+
+      let taxable = Number(invoice.taxable_value);
+      let cgst = Number(invoice.cgst_amount);
+      let sgst = Number(invoice.sgst_amount);
+      let igst = Number(invoice.igst_amount);
+      let total = Number(invoice.total_amount);
+      let isIgst = Boolean(invoice.is_igst);
+      let placeOfSupply = body.place_of_supply ?? invoice.place_of_supply;
+      const nextItems = Array.isArray(body.items) ? body.items : null;
+
+      if (nextItems) {
+        if (nextItems.length === 0) {
+          await client.query("ROLLBACK");
+          return reply.status(400).send({ error: "Kam se kam ek item chahiye" });
+        }
+        const sellerStateCode = String(invoice.state_code ?? invoice.business_gstin?.substring(0, 2) ?? "");
+        const partyGstin = String(body.party_gstin ?? "").trim();
+        const inferredPos =
+          placeOfSupply ??
+          (partyGstin.length >= 2 ? partyGstin.slice(0, 2) : sellerStateCode);
+        placeOfSupply = String(inferredPos ?? "").trim().slice(0, 2) || null;
+        isIgst = Boolean(
+          placeOfSupply && sellerStateCode && sellerStateCode !== String(placeOfSupply).slice(0, 2)
+        );
+        taxable = 0; cgst = 0; sgst = 0; igst = 0;
+        await client.query("DELETE FROM invoice_items WHERE invoice_id = $1", [id]);
+        for (const item of nextItems) {
+          const quantity = normalizeQuantity(item.quantity);
+          const unit_price_paise = normalizePaise(item.unit_price_paise ?? item.unit_price);
+          const gst_rate = Number(item.gst_rate ?? 0);
+          const lineTaxable = Math.round(quantity * unit_price_paise);
+          const tax = toLineTax(lineTaxable, Number.isFinite(gst_rate) ? gst_rate : 0, isIgst);
+          taxable += lineTaxable;
+          cgst += tax.cgst_paise;
+          sgst += tax.sgst_paise;
+          igst += tax.igst_paise;
+          await client.query(
+            `INSERT INTO invoice_items
+               (invoice_id, description, hsn_sac, quantity, unit_price, gst_rate,
+                taxable_value, cgst_amount, sgst_amount, igst_amount, itc_eligibility)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            [
+              id,
+              String(item.description ?? "Line item").trim(),
+              item.hsn_sac ?? item.hsn_sac_code ?? null,
+              quantity,
+              unit_price_paise,
+              String(Number.isFinite(gst_rate) ? gst_rate : 0),
+              lineTaxable,
+              tax.cgst_paise,
+              tax.sgst_paise,
+              tax.igst_paise,
+              normalizeItcEligibility(item.itc_eligibility ?? body.itc_eligibility),
+            ]
+          );
+        }
+        total = taxable + cgst + sgst + igst;
+      }
+
+      const updated = await client.query(
+        `UPDATE invoices SET
+           notes = COALESCE($1, notes),
+           due_date = COALESCE($2, due_date),
+           invoice_date = COALESCE($3, invoice_date),
+           invoice_number = COALESCE($4, invoice_number),
+           place_of_supply = COALESCE($5, place_of_supply),
+           itc_eligibility = COALESCE($6, itc_eligibility),
+           taxable_value = $7,
+           cgst_amount = $8,
+           sgst_amount = $9,
+           igst_amount = $10,
+           total_amount = $11,
+           is_igst = $12,
+           updated_at = NOW()
+         WHERE id = $13
+         RETURNING *`,
+        [
+          body.notes ?? null,
+          body.due_date ?? null,
+          body.invoice_date ?? null,
+          body.invoice_number ?? null,
+          placeOfSupply,
+          body.itc_eligibility ? normalizeItcEligibility(body.itc_eligibility) : null,
+          taxable, cgst, sgst, igst, total, isIgst, id,
+        ]
+      );
+
+      const itemsResult = await client.query(
+        "SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY id",
+        [id]
+      );
+      await client.query("COMMIT");
+      reply.send({ success: true, invoice: updated.rows[0], items: itemsResult.rows });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   });
 
   // DELETE /api/v1/invoices/:id
@@ -507,8 +622,9 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
         const newInvoiceResult = await client.query(
           `INSERT INTO invoices
            (business_id, party_id, invoice_type, invoice_number, invoice_date, due_date,
-            taxable_value, cgst_amount, sgst_amount, igst_amount, total_amount, is_igst, reverse_charge, notes, source)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+            taxable_value, cgst_amount, sgst_amount, igst_amount, total_amount, is_igst, reverse_charge, notes, source,
+            place_of_supply, itc_eligibility)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
            RETURNING *`,
           [
             original.business_id, original.party_id, original.invoice_type,
@@ -516,6 +632,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
             original.taxable_value, original.cgst_amount, original.sgst_amount,
             original.igst_amount, original.total_amount, original.is_igst,
             original.reverse_charge, original.notes, original.source,
+            original.place_of_supply ?? null, original.itc_eligibility ?? "eligible",
           ]
         );
 
@@ -527,13 +644,14 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
           const newItemResult = await client.query(
             `INSERT INTO invoice_items
              (invoice_id, description, hsn_sac, quantity, unit_price, gst_rate,
-              taxable_value, cgst_amount, sgst_amount, igst_amount)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+              taxable_value, cgst_amount, sgst_amount, igst_amount, itc_eligibility)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
              RETURNING *`,
             [
               newInvoice.id, item.description, item.hsn_sac, item.quantity,
               item.unit_price, item.gst_rate, item.taxable_value,
               item.cgst_amount, item.sgst_amount, item.igst_amount,
+              item.itc_eligibility ?? original.itc_eligibility ?? "eligible",
             ]
           );
           newItems.push(newItemResult.rows[0]);

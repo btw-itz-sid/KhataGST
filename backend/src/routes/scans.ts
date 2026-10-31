@@ -7,9 +7,12 @@ import { FastifyInstance } from "fastify";
 import { query } from "../lib/db.js";
 import {
   createManualReviewFallback,
+  ensureBillItems,
   resolveBillMimeType,
   scanBillWithAI,
+  type ExtractedBillData,
 } from "../services/billScanService.js";
+import { buildItcDecision } from "../agents/taxClassifierAgent.js";
 import { sendBillScanCompleteEmail } from "../services/emailService.js";
 import { storageService } from "../services/storageService.js";
 import * as path from "path";
@@ -24,6 +27,37 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
+
+function attachItc(extracted: ExtractedBillData) {
+  const lines = ensureBillItems(extracted).map((item) => {
+    const taxPaise = Number(item.cgst_amount || 0) + Number(item.sgst_amount || 0) + Number(item.igst_amount || 0);
+    const itc = buildItcDecision(
+      item.description || extracted.item_description || "Purchase",
+      Number(item.taxable_amount || 0),
+      taxPaise
+    );
+    return { ...item, itc };
+  });
+  const claimablePaise = lines.reduce((sum, line) => sum + line.itc.claimablePaise, 0);
+  const blockedPaise = lines.reduce((sum, line) => sum + line.itc.blockedPaise, 0);
+  const hasBlocked = lines.some((line) => line.itc.itcEligibility === "blocked");
+  const hasRcm = lines.some((line) => line.itc.itcEligibility === "rcm_applicable");
+  const header = hasBlocked
+    ? lines.find((line) => line.itc.itcEligibility === "blocked")!.itc
+    : hasRcm
+      ? lines.find((line) => line.itc.itcEligibility === "rcm_applicable")!.itc
+      : buildItcDecision(
+          extracted.item_description || lines[0]?.description || "Purchase",
+          Number(extracted.taxable_amount || 0),
+          Number(extracted.cgst_amount || 0) + Number(extracted.sgst_amount || 0) + Number(extracted.igst_amount || 0)
+        );
+  return {
+    ...header,
+    claimablePaise,
+    blockedPaise,
+    lines,
+  };
+}
 
 export async function scanRoutes(app: FastifyInstance) {
 
@@ -140,6 +174,7 @@ export async function scanRoutes(app: FastifyInstance) {
           .catch((e) => console.warn("Failed to fetch email for scan completion:", e?.message));
       }
 
+      const itc = attachItc(result.extracted_data);
       return reply.send({
         success: true,
         scan: {
@@ -148,6 +183,7 @@ export async function scanRoutes(app: FastifyInstance) {
           confidence_score: result.confidence_score,
           action: result.action,
           extracted_data: result.extracted_data,
+          itc,
           mock_mode: Boolean(result.fallback_mode),
           fallback_mode: result.fallback_mode ?? null,
           fallback_reason: result.fallback_reason ?? null,
@@ -203,6 +239,7 @@ export async function scanRoutes(app: FastifyInstance) {
           confidence_score: 0,
           action: "manual",
           extracted_data: fallback.extracted_data,
+          itc: attachItc(fallback.extracted_data),
           mock_mode: true,
           fallback_mode: "manual_review",
           fallback_reason: "AI scan incomplete. Fill fields manually.",
@@ -310,6 +347,7 @@ export async function scanRoutes(app: FastifyInstance) {
             confidence_score: result.confidence_score,
             action: result.action,
             extracted_data: result.extracted_data,
+            itc: attachItc(result.extracted_data),
             fallback_reason: result.fallback_reason ?? null,
           },
         });
@@ -345,6 +383,7 @@ export async function scanRoutes(app: FastifyInstance) {
             confidence_score: 0,
             action: "manual",
             extracted_data: fallback.extracted_data,
+            itc: attachItc(fallback.extracted_data),
             fallback_reason: "AI retry failed. Please fill manually.",
           },
         });

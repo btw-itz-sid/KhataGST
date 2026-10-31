@@ -4,8 +4,10 @@
 // Real data API se fetch hota hai — koi mock invoice nahi dikhega
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { apiFetch, getApiErrorMessage } from "../lib/api";
 import { getBusinessContext, getToken } from "../lib/session";
+import CreateInvoiceForm from "./CreateInvoiceForm";
 
 // Route type — navigate karne ke liye
 type Route = "login" | "dashboard" | "scan" | "invoices";
@@ -30,6 +32,7 @@ interface Invoice {
   igst_amount: number;      // paise mein
   total_amount: number;     // paise mein
   gst_status: "matched" | "pending" | "unmatched";
+  itc_eligibility?: "eligible" | "blocked" | "rcm_applicable";
 }
 
 // Raw invoice jaise API se aata hai (type-unsafe)
@@ -47,14 +50,13 @@ interface RawInvoice {
   igst_amount?: number;
   total_amount?: number;
   gst_status?: string;
+  itc_eligibility?: string;
 }
 
 // Props — parent se navigate function milta hai
 interface Props {
   navigate: (route: Route) => void;
 }
-
-import { BASE_URL } from "../lib/api";
 
 // ── Helper: Paise ko INR format mein dikhao ────────────────────────────────
 function formatMoney(paise: number): string {
@@ -92,6 +94,10 @@ function normalizeInvoice(raw: RawInvoice): Invoice {
       raw.gst_status === "matched" || raw.gst_status === "unmatched"
         ? raw.gst_status
         : "pending",
+    itc_eligibility:
+      raw.itc_eligibility === "blocked" || raw.itc_eligibility === "rcm_applicable"
+        ? raw.itc_eligibility
+        : "eligible",
   };
 }
 
@@ -111,24 +117,23 @@ export default function Invoices({ navigate }: Props) {
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("date");
-  const [selected, setSelected] = useState<Invoice | null>(null);  // Detail view
+  const [selected, setSelected] = useState<Invoice | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [actionBusy, setActionBusy] = useState<"cancel" | "duplicate" | null>(null);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-  // ── API se invoices fetch karo ──────────────────────────────────────────
-  useEffect(() => {
-    // Agar session nahi hai toh fetch mat karo
+  const loadInvoices = useCallback(() => {
     if (!canFetch || !business?.id) {
       setLoading(false);
-      return;
+      return Promise.resolve();
     }
 
-    fetch(`${BASE_URL}/invoices?business_id=${business.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    setLoading(true);
+    return apiFetch(`/invoices?business_id=${business.id}&limit=100`)
       .then(async (res) => {
         const payload = await res.json().catch(() => null);
-        if (!res.ok) throw new Error("Could not load invoices.");
+        if (!res.ok) throw new Error(getApiErrorMessage(payload, "Could not load invoices."));
 
-        // API response ke do formats support karo
         const rows: RawInvoice[] = Array.isArray(payload?.invoices ?? payload?.data)
           ? payload?.invoices ?? payload?.data
           : [];
@@ -140,7 +145,11 @@ export default function Invoices({ navigate }: Props) {
         setError(err instanceof Error ? err.message : "Failed to load invoices.");
       })
       .finally(() => setLoading(false));
-  }, [canFetch, business?.id, token]);
+  }, [canFetch, business?.id]);
+
+  useEffect(() => {
+    void loadInvoices();
+  }, [loadInvoices]);
 
   // ── Search, Filter, Sort logic ─────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -175,7 +184,50 @@ export default function Invoices({ navigate }: Props) {
   const salesTotal = invoices.filter((i) => i.invoice_type === "sale").reduce((s, i) => s + i.total_amount, 0);
   const purchTotal = invoices.filter((i) => i.invoice_type === "purchase").reduce((s, i) => s + i.total_amount, 0);
 
-  // ── Invoice Detail View (jab user kisi invoice pe click kare) ─────────
+  async function cancelInvoice(id: string) {
+    if (!window.confirm("Is invoice ko cancel karna hai?")) return;
+    setActionBusy("cancel");
+    setActionMsg(null);
+    try {
+      const res = await apiFetch(`/invoices/${id}`, { method: "DELETE" });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(getApiErrorMessage(payload, "Cancel fail hua."));
+      setSelected(null);
+      await loadInvoices();
+      setActionMsg("Invoice cancel ho gaya.");
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : "Cancel fail hua.");
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
+  async function duplicateInvoice(inv: Invoice) {
+    const stamp = new Date();
+    const suffix = `${stamp.getHours()}${String(stamp.getMinutes()).padStart(2, "0")}`;
+    const newNumber = `${inv.invoice_number}-COPY-${suffix}`.slice(0, 50);
+    setActionBusy("duplicate");
+    setActionMsg(null);
+    try {
+      const res = await apiFetch(`/invoices/${inv.id}/duplicate`, {
+        method: "POST",
+        body: JSON.stringify({
+          new_invoice_number: newNumber,
+          new_invoice_date: new Date().toISOString().split("T")[0],
+        }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(getApiErrorMessage(payload, "Duplicate fail hua."));
+      setSelected(null);
+      await loadInvoices();
+      setActionMsg(`Copy ban gaya: ${newNumber}`);
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : "Duplicate fail hua.");
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
   if (selected) {
     const gstRows = [
       ["Taxable Amount", formatMoney(selected.taxable_amount)],
@@ -183,6 +235,14 @@ export default function Invoices({ navigate }: Props) {
       ...(selected.sgst_amount > 0 ? [["SGST", formatMoney(selected.sgst_amount)]] : []),
       ...(selected.igst_amount > 0 ? [["IGST", formatMoney(selected.igst_amount)]] : []),
     ];
+    const itcLabel =
+      selected.invoice_type !== "purchase"
+        ? null
+        : selected.itc_eligibility === "blocked"
+          ? "ITC Blocked 17(5)"
+          : selected.itc_eligibility === "rcm_applicable"
+            ? "RCM"
+            : "ITC Eligible";
 
     return (
       <>
@@ -196,8 +256,8 @@ export default function Invoices({ navigate }: Props) {
         </header>
 
         <main className="page">
+          {actionMsg && <div className="action-banner">{actionMsg}</div>}
           <div className="detail-card">
-            {/* Invoice Header */}
             <div className="detail-head">
               <div>
                 <div className="detail-eyebrow">Invoice Number</div>
@@ -212,12 +272,12 @@ export default function Invoices({ navigate }: Props) {
               </span>
             </div>
 
-            {/* Basic Info Rows */}
             {[
               ["Party", selected.party_name],
               ...(selected.party_gstin ? [["GSTIN", selected.party_gstin]] : []),
               ["Date", formatDate(selected.invoice_date)],
               ["Type", selected.invoice_type === "sale" ? "Sales Invoice" : "Purchase Invoice"],
+              ...(itcLabel ? [["ITC", itcLabel]] : []),
             ].map(([label, value]) => (
               <div key={label} className="detail-row">
                 <span className="detail-label">{label}</span>
@@ -225,7 +285,6 @@ export default function Invoices({ navigate }: Props) {
               </div>
             ))}
 
-            {/* Tax Breakdown */}
             <div className="detail-divider" />
             {gstRows.map(([label, value]) => (
               <div key={label} className="detail-row">
@@ -234,10 +293,26 @@ export default function Invoices({ navigate }: Props) {
               </div>
             ))}
 
-            {/* Grand Total */}
             <div className="detail-total">
               <span>Grand Total</span>
               <span className="total-val">{formatMoney(selected.total_amount)}</span>
+            </div>
+
+            <div className="detail-actions">
+              <button
+                className="btn-sec"
+                disabled={actionBusy !== null}
+                onClick={() => void duplicateInvoice(selected)}
+              >
+                {actionBusy === "duplicate" ? "Copying…" : "Duplicate"}
+              </button>
+              <button
+                className="btn-danger"
+                disabled={actionBusy !== null}
+                onClick={() => void cancelInvoice(selected.id)}
+              >
+                {actionBusy === "cancel" ? "Cancelling…" : "Cancel invoice"}
+              </button>
             </div>
           </div>
         </main>
@@ -256,12 +331,13 @@ export default function Invoices({ navigate }: Props) {
           ← Dashboard
         </button>
         <div className="topbar-brand">Invoices</div>
-        <button className="btn-pri" onClick={() => navigate("scan")}>
-          + Scan
+        <button className="btn-pri" onClick={() => setCreating(true)}>
+          + New
         </button>
       </header>
 
       <main className="page">
+        {actionMsg && <div className="action-banner">{actionMsg}</div>}
 
         {/* ── Summary Bar (sirf jab sab tab selected ho) ────────────────── */}
         {tab === "all" && invoices.length > 0 && (
@@ -345,11 +421,11 @@ export default function Invoices({ navigate }: Props) {
               {search ? `No results for "${search}"` : "No invoices found"}
             </p>
             <p className="empty-sub">
-              {search ? "Try a different search term." : "Scan your first invoice to get started."}
+              {search ? "Try a different search term." : "Create a sales invoice or scan a purchase bill."}
             </p>
             {!search && (
-              <button className="btn-pri" onClick={() => navigate("scan")}>
-                Scan Invoice
+              <button className="btn-pri" onClick={() => setCreating(true)}>
+                Create Invoice
               </button>
             )}
           </div>
@@ -396,6 +472,15 @@ export default function Invoices({ navigate }: Props) {
           </div>
         )}
       </main>
+      {creating && (
+        <CreateInvoiceForm
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            setCreating(false);
+            void loadInvoices();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -601,6 +686,20 @@ input,select{font-family:inherit;outline:none}
 .total-val{
   font-family:'JetBrains Mono',monospace;
   font-size:20px;font-weight:800;color:#f97316;
+}
+.detail-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.btn-sec{
+  padding:10px 14px;border-radius:8px;background:#fff;border:1px solid #d1d5db;
+  font-size:13px;font-weight:700;color:#374151;cursor:pointer;
+}
+.btn-danger{
+  padding:10px 14px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;
+  font-size:13px;font-weight:700;color:#991b1b;cursor:pointer;
+}
+.btn-sec:disabled,.btn-danger:disabled{opacity:.6;cursor:not-allowed}
+.action-banner{
+  padding:10px 14px;border-radius:8px;background:#ecfdf5;border:1px solid #a7f3d0;
+  color:#065f46;font-size:13px;font-weight:600;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
