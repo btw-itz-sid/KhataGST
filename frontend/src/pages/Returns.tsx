@@ -2,7 +2,7 @@ import { useState } from "react";
 import { apiFetch, getApiErrorMessage } from "../lib/api";
 import { getBusinessContext } from "../lib/session";
 
-type Route = "dashboard" | "export" | "invoices";
+type Route = "dashboard" | "export" | "invoices" | "reconcile";
 
 interface Props {
   navigate: (route: Route) => void;
@@ -212,8 +212,8 @@ export default function Returns({ navigate }: Props) {
           ← Dashboard
         </button>
         <div className="topbar-brand">GST Returns</div>
-        <button className="back-btn" onClick={() => navigate("invoices")}>
-          Invoices
+        <button className="back-btn" onClick={() => navigate("reconcile")}>
+          2B Reconcile
         </button>
       </header>
 

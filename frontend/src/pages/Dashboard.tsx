@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { getBusinessContext, getToken } from "../lib/session";
 
 // Route type — app ke andar navigate karne ke liye
-type Route = "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing";
+type Route = "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing" | "reconcile";
 
 // GST matching status ke 3 types
 type GstStatus = "matched" | "pending" | "unmatched";
@@ -467,6 +467,19 @@ export default function Dashboard({ navigate, onLogout }: Props) {
               </div>
               <span className="action-arrow">›</span>
             </button>
+            <button className="action-row" onClick={() => navigate("reconcile")}>
+              <div className="action-icon action-amber">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h7"/>
+                  <path d="m14 15 2 2 4-4"/>
+                </svg>
+              </div>
+              <div className="action-text">
+                <strong>2B Reconcile</strong>
+                <span>Stop notice risk before you claim ITC</span>
+              </div>
+              <span className="action-arrow">›</span>
+            </button>
           </div>
         </section>
 
@@ -750,6 +763,7 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
   display:flex;align-items:center;justify-content:center;
 }
 .action-orange{background:#fef3c7;color:#ea580c}
+.action-amber{background:#ffedd5;color:#c2410c}
 .action-blue{background:#dbeafe;color:#1d4ed8}
 .action-green{background:#d1fae5;color:#059669}
 .action-text{flex:1}

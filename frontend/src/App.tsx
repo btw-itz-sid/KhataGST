@@ -9,6 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Admin from "./pages/Admin";
 import Dashboard from "./pages/Dashboard";
 import Returns from "./pages/Returns";
+import Reconcile from "./pages/Reconcile";
 import GSTRates from "./pages/GSTRates";
 import Invoices from "./pages/Invoices";
 import Login from "./pages/Login";
@@ -39,6 +40,7 @@ type Route =
   | "ai-ca"
   | "invoices"
   | "export"
+  | "reconcile"
   | "gst-rates"
   | "profile"
   | "pricing";
@@ -390,6 +392,11 @@ export default function App() {
       {/* ── GSTR Export ───────────────────────────────────────────── */}
       {route === "export" && (
         <Returns navigate={navigate} />
+      )}
+
+      {/* ── GSTR-2B Notice Prevention ─────────────────────────────── */}
+      {route === "reconcile" && (
+        <Reconcile navigate={navigate} />
       )}
 
       {/* ── Profile / Settings ────────────────────────────────────── */}
