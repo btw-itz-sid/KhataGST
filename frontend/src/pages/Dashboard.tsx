@@ -152,11 +152,21 @@ function calcHealthScore(data: DashboardData): { score: number; label: string; c
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Dashboard Component
 // ─────────────────────────────────────────────────────────────────────────────
+interface ComplianceNudge {
+  id: string;
+  severity: "info" | "warn" | "critical";
+  title: string;
+  detail: string;
+  action?: string;
+}
+
 export default function Dashboard({ navigate, onLogout }: Props) {
   // State: data load ho raha hai ya nahi
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [nudges, setNudges] = useState<ComplianceNudge[]>([]);
+  const [nudgePeriod, setNudgePeriod] = useState("");
 
   // Business ka naam session se lo
   const [businessName, setBusinessName] = useState(
@@ -182,10 +192,11 @@ export default function Dashboard({ navigate, onLogout }: Props) {
     // Sab APIs ek saath call karo (faster loading)
     async function fetchDashboard() {
       try {
-        const [businessRes, invoiceRes, returnsRes] = await Promise.all([
+        const [businessRes, invoiceRes, returnsRes, nudgeRes] = await Promise.all([
           apiFetch(`/businesses/${businessId}`),
           apiFetch(`/invoices?business_id=${businessId}&limit=100`),
           apiFetch(`/returns?business_id=${businessId}`),
+          apiFetch(`/compliance/nudges?business_id=${businessId}`),
         ]);
 
         // Business info se naam update karo
@@ -252,6 +263,12 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           recentInvoices: invoices.slice(0, 5),
           totalInvoices: Number(invoicePayload?.pagination?.total ?? invoices.length),
         });
+
+        const nudgePayload = await nudgeRes.json().catch(() => null);
+        if (nudgeRes.ok) {
+          setNudgePeriod(String(nudgePayload?.tax_period || ""));
+          setNudges(Array.isArray(nudgePayload?.nudges) ? nudgePayload.nudges : []);
+        }
         setError(null);
       } catch (err) {
         // API fail ho toh user ko batao
@@ -361,6 +378,34 @@ export default function Dashboard({ navigate, onLogout }: Props) {
             </div>
           </div>
         </section>
+
+        {nudges.length > 0 && (
+          <section className="nudge-panel">
+            <div className="nudge-head">
+              <div>
+                <div className="nudge-kicker">Notice prevention</div>
+                <h2 className="nudge-title">Fix before you claim ITC{nudgePeriod ? ` · ${nudgePeriod}` : ""}</h2>
+              </div>
+              <button className="nudge-link" onClick={() => navigate("reconcile")}>Open 2B</button>
+            </div>
+            <div className="nudge-list">
+              {nudges.slice(0, 4).map((nudge) => (
+                <button
+                  key={nudge.id}
+                  className={`nudge-card nudge-${nudge.severity}`}
+                  onClick={() => {
+                    if (nudge.action === "reconcile") navigate("reconcile");
+                    else if (nudge.action === "export") navigate("export");
+                    else if (nudge.action === "invoices") navigate("invoices");
+                  }}
+                >
+                  <strong>{nudge.title}</strong>
+                  <span>{nudge.detail}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="stat-grid">
           <div className="stat-card">
@@ -680,6 +725,20 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
 .dot-ok{width:7px;height:7px;border-radius:50%;background:#10b981;flex-shrink:0}
 .dot-warn{width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0}
 
+/* ── Compliance nudges ─────────────────────────────────────────────────── */
+.nudge-panel{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.nudge-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.nudge-kicker{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af}
+.nudge-title{font-size:16px;font-weight:800;color:#111827;margin-top:4px}
+.nudge-link{border:1px solid #fed7aa;background:#fff7ed;color:#c2410c;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.nudge-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.nudge-card{text-align:left;border-radius:10px;padding:12px;border:1px solid #e5e7eb;background:#f8fafc;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.nudge-card strong{font-size:13px;color:#0f172a}
+.nudge-card span{font-size:12px;color:#64748b;line-height:1.4}
+.nudge-critical{border-color:#fecaca;background:#fef2f2}
+.nudge-warn{border-color:#fde68a;background:#fffbeb}
+.nudge-info{border-color:#bfdbfe;background:#eff6ff}
+
 /* ── Stat Cards Grid ────────────────────────────────────────────────────── */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .stat-card{
@@ -826,7 +885,7 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media(max-width:1080px){
-  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .stat-grid,.nudge-list{grid-template-columns:1fr}
   .mid-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:720px){
@@ -836,7 +895,7 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
   .hero-strip{flex-direction:column;gap:16px}
   .hero-right{align-self:stretch}
   .health-card{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;text-align:left}
-  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .stat-grid,.nudge-list{grid-template-columns:1fr}
   .mid-grid{grid-template-columns:1fr}
   .inv-row{grid-template-columns:1fr auto;gap:8px}
   .inv-header{display:none}

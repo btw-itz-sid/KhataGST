@@ -2,6 +2,7 @@
 import { FastifyInstance } from "fastify";
 import * as db from "../lib/db";
 import { calculateTax } from "../services/gstEngine.js";
+import { assertInvoiceAllowed } from "../services/planLimits.js";
 
 function toLineTax(taxable_paise: number, gst_rate: number, isInterState: boolean) {
   const tax = calculateTax(taxable_paise, gst_rate, isInterState);
@@ -58,6 +59,22 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
     if (!items || items.length === 0) {
       return reply.status(400).send({ error: "Kam se kam ek item chahiye" });
+    }
+
+    try {
+      await assertInvoiceAllowed(userId);
+    } catch (err: any) {
+      if (err?.code === "PLAN_LIMIT") {
+        return reply.status(402).send({
+          success: false,
+          error: {
+            code: "PLAN_LIMIT",
+            message: err.message,
+            usage: err.usage,
+          },
+        });
+      }
+      throw err;
     }
 
     const bizResult = await db.query(

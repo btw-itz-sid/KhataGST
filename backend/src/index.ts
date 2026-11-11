@@ -145,6 +145,7 @@ import { businessRoutes } from "./routes/businesses.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 import { aiCaRoutes } from "./routes/aiCaRoutes.js";
 import { reconcileRoutes } from "./routes/reconcile.js";
+import { complianceRoutes } from "./routes/compliance.js";
 
 server.register(authRoutes, { prefix: "/api/v1/auth" });
 server.register(partyRoutes, { prefix: "/api/v1/parties" });
@@ -158,6 +159,7 @@ server.register(businessRoutes, { prefix: "/api/v1/businesses" });
 server.register(invoiceRoutes, { prefix: "/api/v1/invoices" });
 server.register(aiCaRoutes, { prefix: "/api/v1/ai-ca" });
 server.register(reconcileRoutes, { prefix: "/api/v1/reconcile" });
+server.register(complianceRoutes, { prefix: "/api/v1/compliance" });
 
 // ── Health check — probes DB connectivity ────────────────────
 import { probeHealth } from "./lib/db.js";

@@ -14,6 +14,7 @@ import {
 } from "../services/billScanService.js";
 import { buildItcDecision } from "../agents/taxClassifierAgent.js";
 import { sendBillScanCompleteEmail } from "../services/emailService.js";
+import { assertScanAllowed } from "../services/planLimits.js";
 import { storageService } from "../services/storageService.js";
 import * as path from "path";
 
@@ -64,6 +65,23 @@ export async function scanRoutes(app: FastifyInstance) {
   // POST /api/v1/scans — bill image upload karo aur AI se scan karwao
   app.post("/", { preHandler: [app.authenticate] }, async (request, reply) => {
     const { userId } = request.user as any;
+
+    try {
+      await assertScanAllowed(userId);
+    } catch (err: any) {
+      if (err?.code === "PLAN_LIMIT") {
+        return reply.status(402).send({
+          success: false,
+          error: {
+            code: "PLAN_LIMIT",
+            message: err.message,
+            usage: err.usage,
+          },
+        });
+      }
+      throw err;
+    }
+
     const parts = request.parts();
 
     let business_id = "";

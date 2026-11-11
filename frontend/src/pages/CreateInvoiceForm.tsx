@@ -11,6 +11,12 @@ interface LineItem {
   gst_rate: string;
 }
 
+interface HsnSuggestion {
+  hsn_sac: string;
+  description: string;
+  gst_rate: number;
+}
+
 interface PartyOption {
   id: string;
   name: string;
@@ -58,6 +64,8 @@ export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
   const [partyQuery, setPartyQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hsnHints, setHsnHints] = useState<Record<number, HsnSuggestion[]>>({});
+  const hsnTimers = useMemo(() => new Map<number, number>(), []);
 
   useEffect(() => {
     const business = getBusinessContext();
@@ -79,7 +87,12 @@ export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
         );
       })
       .catch(() => undefined);
-  }, []);
+
+    return () => {
+      for (const t of hsnTimers.values()) window.clearTimeout(t);
+      hsnTimers.clear();
+    };
+  }, [hsnTimers]);
 
   const filteredParties = useMemo(() => {
     const q = partyQuery.trim().toLowerCase();
@@ -109,6 +122,36 @@ export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
 
   function updateItem(index: number, patch: Partial<LineItem>) {
     setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+    if (patch.description != null) {
+      const q = patch.description.trim();
+      const prevTimer = hsnTimers.get(index);
+      if (prevTimer) window.clearTimeout(prevTimer);
+      if (q.length < 3) {
+        setHsnHints((prev) => ({ ...prev, [index]: [] }));
+        return;
+      }
+      const handle = window.setTimeout(() => {
+        void apiFetch(`/compliance/hsn-suggest?q=${encodeURIComponent(q)}&limit=4`)
+          .then(async (res) => {
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) return;
+            setHsnHints((prev) => ({
+              ...prev,
+              [index]: Array.isArray(payload?.suggestions) ? payload.suggestions : [],
+            }));
+          })
+          .catch(() => undefined);
+      }, 280);
+      hsnTimers.set(index, handle);
+    }
+  }
+
+  function applyHsn(index: number, suggestion: HsnSuggestion) {
+    updateItem(index, {
+      hsn_sac: suggestion.hsn_sac,
+      gst_rate: String(suggestion.gst_rate ?? 18),
+    });
+    setHsnHints((prev) => ({ ...prev, [index]: [] }));
   }
 
   function onGstinChange(value: string) {
@@ -257,40 +300,57 @@ export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
 
         <div className="create-lines-label">Line items</div>
         {items.map((item, index) => (
-          <div className="create-line" key={index}>
-            <input
-              placeholder="Description"
-              value={item.description}
-              onChange={(e) => updateItem(index, { description: e.target.value })}
-            />
-            <input
-              placeholder="HSN"
-              value={item.hsn_sac}
-              onChange={(e) => updateItem(index, { hsn_sac: e.target.value })}
-            />
-            <input
-              type="number"
-              min="0.001"
-              step="0.001"
-              placeholder="Qty"
-              value={item.quantity}
-              onChange={(e) => updateItem(index, { quantity: e.target.value })}
-            />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Rate ₹"
-              value={item.unit_price}
-              onChange={(e) => updateItem(index, { unit_price: e.target.value })}
-            />
-            <select value={item.gst_rate} onChange={(e) => updateItem(index, { gst_rate: e.target.value })}>
-              {[0, 5, 12, 18, 28].map((rate) => (
-                <option key={rate} value={rate}>{rate}%</option>
-              ))}
-            </select>
-            {items.length > 1 && (
-              <button type="button" className="line-remove" onClick={() => setItems(items.filter((_, i) => i !== index))}>Remove</button>
+          <div className="create-line-wrap" key={index}>
+            <div className="create-line">
+              <input
+                placeholder="Description"
+                value={item.description}
+                onChange={(e) => updateItem(index, { description: e.target.value })}
+              />
+              <input
+                placeholder="HSN"
+                value={item.hsn_sac}
+                onChange={(e) => updateItem(index, { hsn_sac: e.target.value })}
+              />
+              <input
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="Qty"
+                value={item.quantity}
+                onChange={(e) => updateItem(index, { quantity: e.target.value })}
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Rate ₹"
+                value={item.unit_price}
+                onChange={(e) => updateItem(index, { unit_price: e.target.value })}
+              />
+              <select value={item.gst_rate} onChange={(e) => updateItem(index, { gst_rate: e.target.value })}>
+                {[0, 5, 12, 18, 28].map((rate) => (
+                  <option key={rate} value={rate}>{rate}%</option>
+                ))}
+              </select>
+              {items.length > 1 && (
+                <button type="button" className="line-remove" onClick={() => setItems(items.filter((_, i) => i !== index))}>Remove</button>
+              )}
+            </div>
+            {(hsnHints[index] || []).length > 0 && !item.hsn_sac && (
+              <div className="hsn-hints">
+                {(hsnHints[index] || []).map((hint) => (
+                  <button
+                    key={`${hint.hsn_sac}-${hint.description}`}
+                    type="button"
+                    className="hsn-hint"
+                    onClick={() => applyHsn(index, hint)}
+                  >
+                    <strong>{hint.hsn_sac}</strong>
+                    <span>{hint.description} · {hint.gst_rate}%</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         ))}
@@ -341,7 +401,12 @@ const CREATE_STYLES = `
 .party-option strong{font-size:13px;color:#111827}
 .party-option span{font-size:11px;color:#6b7280;font-family:'JetBrains Mono',monospace}
 .create-lines-label{font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em}
+.create-line-wrap{display:flex;flex-direction:column;gap:6px}
 .create-line{display:grid;grid-template-columns:2fr .8fr .6fr .8fr .7fr auto;gap:8px}
+.hsn-hints{display:flex;flex-wrap:wrap;gap:6px}
+.hsn-hint{border:1px solid #fed7aa;background:#fff7ed;border-radius:8px;padding:6px 8px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px}
+.hsn-hint strong{font-family:'JetBrains Mono',monospace;font-size:12px;color:#9a3412}
+.hsn-hint span{font-size:11px;color:#9a3412}
 .add-line,.line-remove,.ghost,.save{border:none;cursor:pointer;font-weight:700}
 .add-line{align-self:flex-start;background:#fff7ed;color:#c2410c;padding:8px 12px;border-radius:8px}
 .line-remove{background:#fee2e2;color:#991b1b;border-radius:8px;padding:0 10px}
