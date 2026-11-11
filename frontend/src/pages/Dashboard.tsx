@@ -885,7 +885,7 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media(max-width:1080px){
-  .stat-grid,.nudge-list{grid-template-columns:1fr}
+  .stat-grid,.nudge-list{grid-template-columns:1fr 1fr}
   .mid-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:720px){
