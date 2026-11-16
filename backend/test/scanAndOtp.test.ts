@@ -40,15 +40,17 @@ test("header-only bills become a single line item", () => {
   assert.equal(items[0].taxable_amount, 10000);
 });
 
-test("OTPs are 6 digits and only their keyed hash is comparable", () => {
-  const otp = generateOTP();
-  assert.match(otp, /^\d{6}$/);
+test("default OTP is last 4 digits of the phone and only keyed hash is comparable", () => {
+  const phone = "9876543210";
+  const otp = generateOTP(phone);
+  assert.equal(otp, "3210");
+  assert.match(otp, /^\d{4}$/);
 
-  const stored = hashOtp("9876543210", otp);
+  const stored = hashOtp(phone, otp);
   assert.notEqual(stored, otp);
-  assert.equal(otpMatches(stored, "9876543210", otp), true);
+  assert.equal(otpMatches(stored, phone, otp), true);
   assert.equal(otpMatches(stored, "9876543211", otp), false);
-  assert.equal(otpMatches(stored, "9876543210", otp === "123456" ? "654321" : "123456"), false);
-  assert.equal(otpMatches(otp, "9876543210", otp), false);
-  assert.equal(otpMatches(null, "9876543210", otp), false);
+  assert.equal(otpMatches(stored, phone, "9999"), false);
+  assert.equal(otpMatches(otp, phone, otp), false);
+  assert.equal(otpMatches(null, phone, otp), false);
 });

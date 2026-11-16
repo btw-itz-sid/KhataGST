@@ -10,7 +10,13 @@ import * as path from "path";
 import * as fs from "fs";
 import { z } from "zod";
 import { query } from "../lib/db.js";
-import { generateOTP, hashOtp, otpMatches } from "../lib/otp.js";
+import {
+  expectedOtpLength,
+  generateOTP,
+  hashOtp,
+  isPhoneLast4OtpMode,
+  otpMatches,
+} from "../lib/otp.js";
 import { sendWelcomeEmail } from "../services/emailService.js";
 
 const DEV_OTP_LOG_PATH = path.resolve(
@@ -115,18 +121,22 @@ async function verifyOtpFromDB(
 // ── SMS send karo ─────────────────────────────────────────────────────────────
 
 async function sendOTP(phone: string, otp: string): Promise<void> {
-  // Development — skip real SMS, just log to file
-  if (process.env.NODE_ENV !== "production") {
-    const line = `[${new Date().toISOString()}] OTP for ${phone}: ${otp}\n`;
+  // Default: phone last-4 mode — no SMS vendor until OTP_MODE=fast2sms
+  if (isPhoneLast4OtpMode()) {
+    const line = `[${new Date().toISOString()}] DEV OTP (last 4 of ${phone}): ${otp}\n`;
     console.log(line.trim());
-    fs.appendFileSync(DEV_OTP_LOG_PATH, line, "utf8");
+    try {
+      fs.appendFileSync(DEV_OTP_LOG_PATH, line, "utf8");
+    } catch {
+      // ignore log file failures
+    }
     return;
   }
 
-  // Production — send via Fast2SMS
+  // Live SMS via Fast2SMS
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
-    throw new Error("FAST2SMS_API_KEY not set in environment");
+    throw new Error("FAST2SMS_API_KEY not set — set OTP_MODE=phone_last4 or add the SMS key");
   }
 
   const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
@@ -207,7 +217,19 @@ export async function authRoutes(app: FastifyInstance) {
       // Don't block if cooldown check fails — proceed with send
     }
 
-    const otp = generateOTP();
+    let otp: string;
+    try {
+      otp = generateOTP(phone);
+    } catch (err) {
+      console.error("OTP generate failed:", err);
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_PHONE",
+          message: "Valid 10-digit phone do",
+        },
+      });
+    }
 
     try {
       // OTP DB mein save karo (server restart-safe)
@@ -236,20 +258,30 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
+    const last4 = isPhoneLast4OtpMode();
     return reply.send({
       success: true,
-      message: `OTP bheja gaya ${phone} pe`,
+      message: last4
+        ? `OTP = aapke number ke last 4 digits (${phone.slice(-4)})`
+        : `OTP bheja gaya ${phone} pe`,
       data: {
-        message: `OTP bheja gaya ${phone} pe`,
+        message: last4
+          ? `OTP = aapke number ke last 4 digits`
+          : `OTP bheja gaya ${phone} pe`,
+        otp_length: expectedOtpLength(),
+        otp_mode: last4 ? "phone_last4" : "fast2sms",
+        // Frontend hint only — never expose OTP value in API for live mode
+        ...(last4 ? { hint: `Enter ${phone.slice(-4)}` } : {}),
       },
     });
   });
 
   // POST /api/v1/auth/verify-otp
   app.post("/verify-otp", async (request, reply) => {
+    const otpLen = expectedOtpLength();
     const schema = z.object({
       phone: z.string().min(10).max(10),
-      otp: z.string().length(6),
+      otp: z.string().length(otpLen),
       name: z.string().optional(),
     });
 
@@ -257,7 +289,10 @@ export async function authRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.status(400).send({
         success: false,
-        error: { code: "INVALID_INPUT", message: "Phone aur 6-digit OTP do" },
+        error: {
+          code: "INVALID_INPUT",
+          message: `Phone aur ${otpLen}-digit OTP do`,
+        },
       });
     }
 

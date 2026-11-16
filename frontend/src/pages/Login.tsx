@@ -25,8 +25,8 @@ type Step = "phone" | "otp" | "loading";
 
 import { BASE_URL } from "../lib/api";
 
-// OTP kitne digits ka hai
-const OTP_LENGTH = 6;
+// Abhi OTP = phone ke last 4 digits (SMS API baad mein)
+const OTP_LENGTH = 4;
 const EMPTY_OTP = Array.from({ length: OTP_LENGTH }, () => "");
 
 // KhataGST ke features jo left panel mein dikhenge
@@ -145,7 +145,7 @@ export default function Login({ onSuccess }: Props) {
   // ── OTP verify karo ─────────────────────────────────────────────────
   async function verifyOtp() {
     if (!canVerifyOtp) {
-      setError("6-digit OTP enter karo.");
+      setError("4-digit OTP enter karo (number ke last 4 digits).");
       return;
     }
     setError(null);
@@ -332,10 +332,11 @@ export default function Login({ onSuccess }: Props) {
             {step === "otp" && (
               <>
                 <div className="auth-eyebrow">Verify</div>
-                <h2 className="auth-title">Enter your code</h2>
+                <h2 className="auth-title">Enter OTP</h2>
                 <p className="auth-desc">
-                  We sent a 6-digit code to <strong>+91 {cleanedPhone}</strong>.
-                  Check your SMS.
+                  Abhi SMS nahi — OTP = <strong>+91 {cleanedPhone}</strong> ke{" "}
+                  <strong>last 4 digits</strong> ({cleanedPhone.slice(-4)}).
+                  Paise aane ke baad live SMS OTP on hoga.
                 </p>
 
                 {/* Error */}
@@ -570,8 +571,8 @@ a{color:inherit;text-decoration:none}
 
 /* OTP Grid */
 .otp-grid{
-  display:grid;grid-template-columns:repeat(6,1fr);
-  gap:8px;
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:10px;max-width:280px;margin:0 auto;width:100%;
 }
 .otp-box{
   width:100%;min-width:0;aspect-ratio:1;border-radius:9px;
