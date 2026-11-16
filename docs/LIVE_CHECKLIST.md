@@ -24,16 +24,39 @@ Services show `0/1 online` until you upgrade Hobby (~$5/mo) or move host.
 4. Run migrations `001` → `009` on Neon if not already applied
 5. Confirm `GET /health` returns `status: ok`
 
-### Option B — Render free/web service (if not paying Railway yet)
-1. [render.com](https://render.com) → New Web Service → connect `btw-itz-sid/KhataGST`
-2. Root directory: `backend` · Build: `npm install && npm run build` · Start: `node dist/index.js`
-3. Same env vars as Railway (Neon `DATABASE_URL`, `JWT_SECRET`, `OTP_MODE=phone_last4`, `GEMINI_API_KEY`, …)
-4. Free tier sleeps after idle — fine for demo, not for production customers
+### Option B — Render free (chosen path)
+Open: https://dashboard.render.com/web/new → connect **`btw-itz-sid/KhataGST`**
 
-## 3. Frontend (Vercel) — can deploy anytime (account already logged in)
-1. Root: `frontend`
-2. Env: `VITE_API_BASE_URL=https://YOUR-RAILWAY-API.up.railway.app/api/v1`
-3. Deploy (SPA rewrite via `vercel.json`)
+| Field | Value |
+|---|---|
+| Name | `khatagst-api` |
+| Language | Node |
+| Branch | `main` |
+| Root Directory | `backend` |
+| Build Command | `npm install && npm run build` |
+| Start Command | `node dist/index.js` |
+| Instance | **Free** `$0` (0.1 CPU / 512 MB) |
+
+**Environment Variables** (Add from `.env` or paste):
+- `NODE_ENV` = `production`
+- `OTP_MODE` = `phone_last4`
+- `DATABASE_URL` = (from `backend/.env` Neon URL)
+- `JWT_SECRET` = (same as local, must be ≥32 chars)
+- `GEMINI_API_KEY` = (from `backend/.env`)
+- `FRONTEND_URL` = (set after Vercel URL is known, e.g. `https://khatagst.vercel.app`)
+
+Then **Deploy web service**. Wait for live URL like `https://khatagst-api.onrender.com`  
+Test: `https://khatagst-api.onrender.com/health` → should show `status: ok` (first hit may take ~30–60s cold start).
+
+Free tier sleeps after idle — fine for demo.
+
+## 3. Frontend (Vercel) — free
+1. https://vercel.com/new → Import `btw-itz-sid/KhataGST`
+2. **Root Directory:** `frontend`
+3. Framework: Vite
+4. Env: `VITE_API_BASE_URL` = `https://YOUR-RENDER-SERVICE.onrender.com/api/v1`
+5. Deploy (SPA rewrite already in `frontend/vercel.json`)
+6. Copy Vercel URL → paste back into Render as `FRONTEND_URL` → Manual Deploy
 
 ## 4. Smoke test (15 min)
 1. Login with phone → OTP = last 4 digits
