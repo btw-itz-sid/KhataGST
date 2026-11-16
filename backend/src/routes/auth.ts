@@ -439,4 +439,108 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
   );
+
+  // DELETE /api/v1/auth/account — permanent account wipe (DPDP / trust)
+  app.delete(
+    "/account",
+    {
+      preHandler: [app.authenticate],
+    },
+    async (request, reply) => {
+      const { userId } = request.user as any;
+      const body = z
+        .object({
+          confirm: z.literal("DELETE"),
+        })
+        .safeParse(request.body);
+
+      if (!body.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "CONFIRM_REQUIRED",
+            message: 'Body mein { "confirm": "DELETE" } bhejo',
+          },
+        });
+      }
+
+      try {
+        const userRes = await query(`SELECT phone FROM users WHERE id = $1`, [userId]);
+        if (userRes.rows.length === 0) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: "USER_NOT_FOUND", message: "User nahi mila" },
+          });
+        }
+        const phone = String(userRes.rows[0].phone);
+
+        // Wipe owned business data first (FK-safe order)
+        await query(
+          `DELETE FROM itc_recon_results
+            WHERE business_id IN (SELECT id FROM businesses WHERE owner_id = $1)`,
+          [userId]
+        );
+        await query(
+          `DELETE FROM gstr2b_rows
+            WHERE business_id IN (SELECT id FROM businesses WHERE owner_id = $1)`,
+          [userId]
+        );
+        await query(
+          `DELETE FROM gstr2b_imports
+            WHERE business_id IN (SELECT id FROM businesses WHERE owner_id = $1)`,
+          [userId]
+        );
+        await query(
+          `DELETE FROM gst_returns
+            WHERE business_id IN (SELECT id FROM businesses WHERE owner_id = $1)`,
+          [userId]
+        );
+        await query(
+          `DELETE FROM bill_scans
+            WHERE business_id IN (SELECT id FROM businesses WHERE owner_id = $1)
+               OR uploaded_by = $1`,
+          [userId]
+        );
+        await query(
+          `DELETE FROM invoice_items
+            WHERE invoice_id IN (
+              SELECT i.id FROM invoices i
+              JOIN businesses b ON b.id = i.business_id
+              WHERE b.owner_id = $1
+            )`,
+          [userId]
+        );
+        await query(
+          `DELETE FROM invoices
+            WHERE business_id IN (SELECT id FROM businesses WHERE owner_id = $1)`,
+          [userId]
+        );
+        await query(
+          `DELETE FROM parties
+            WHERE business_id IN (SELECT id FROM businesses WHERE owner_id = $1)`,
+          [userId]
+        );
+        await query(`DELETE FROM ca_client_links WHERE ca_user_id = $1 OR client_biz_id IN (SELECT id FROM businesses WHERE owner_id = $1)`, [userId]);
+        await query(`DELETE FROM businesses WHERE owner_id = $1`, [userId]);
+        await query(`DELETE FROM payments WHERE user_id = $1`, [userId]);
+        await query(`DELETE FROM audit_logs WHERE user_id = $1`, [userId]);
+        await query(`DELETE FROM otp_verifications WHERE phone = $1`, [phone]);
+        await query(`DELETE FROM users WHERE id = $1`, [userId]);
+
+        return reply.send({
+          success: true,
+          message: "Account aur business data permanently delete ho gaya",
+        });
+      } catch (err: any) {
+        console.error("Account delete failed:", err);
+        return reply.status(500).send({
+          success: false,
+          error: {
+            code: "DELETE_FAILED",
+            message: err?.message || "Account delete fail hua",
+          },
+        });
+      }
+    }
+  );
 }

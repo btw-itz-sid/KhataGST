@@ -6,7 +6,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState } from "react";
-import { getBusinessContext, getToken } from "../lib/session";
+import { apiFetch, getApiErrorMessage } from "../lib/api";
+import { clearSession, getBusinessContext, getToken } from "../lib/session";
 
 // Route type
 type Route = "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing";
@@ -66,6 +67,7 @@ export default function Profile({ navigate, onLogout }: Props) {
     smsAlerts: false,
     monthlyReports: true,
   });
+  const [deleting, setDeleting] = useState(false);
 
   // Session se business context
   const bCtx = getBusinessContext();
@@ -113,6 +115,40 @@ export default function Profile({ navigate, onLogout }: Props) {
       })
       .finally(() => setLoading(false));
   }, [bCtx?.id]);
+
+  async function handleDeleteAccount() {
+    const ok = window.confirm(
+      "Account permanently delete karna hai? Saara business data chala jayega."
+    );
+    if (!ok) return;
+    const typed = window.prompt('Confirm ke liye DELETE type karo (capital letters):');
+    if (typed !== "DELETE") {
+      setSaveMsg({ ok: false, text: "Delete cancel — DELETE type karna zaroori hai." });
+      return;
+    }
+
+    setDeleting(true);
+    setSaveMsg(null);
+    try {
+      const res = await apiFetch("/auth/account", {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(payload, "Account delete fail hua."));
+      }
+      clearSession();
+      onLogout();
+    } catch (err) {
+      setSaveMsg({
+        ok: false,
+        text: err instanceof Error ? err.message : "Account delete fail hua.",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   // ── Profile save karo ────────────────────────────────────────────────
   async function handleSave() {
@@ -435,6 +471,23 @@ export default function Profile({ navigate, onLogout }: Props) {
                       </div>
                       <button className="btn-ghost" onClick={() => navigate("export")}>
                         Export Data
+                      </button>
+                    </div>
+
+                    <div className="danger-row">
+                      <div>
+                        <strong>Delete Account</strong>
+                        <p>
+                          Permanent — business, invoices, scans, aur 2B data sab hat jayega.
+                          Wapas nahi aayega.
+                        </p>
+                      </div>
+                      <button
+                        className="btn-danger"
+                        disabled={deleting}
+                        onClick={() => void handleDeleteAccount()}
+                      >
+                        {deleting ? "Deleting…" : "Delete Account"}
                       </button>
                     </div>
                   </div>

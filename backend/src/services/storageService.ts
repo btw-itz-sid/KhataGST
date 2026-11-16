@@ -54,6 +54,11 @@ export class StorageService {
       });
     } else {
       this.provider = "local";
+      if (process.env.NODE_ENV === "production") {
+        console.warn(
+          "⚠️ PRODUCTION: storage is LOCAL. Scans will be lost on Railway restarts. Set R2_* or AWS S3_* env vars."
+        );
+      }
     }
     console.log(`📦 Storage Service initialized with provider: ${this.provider}`);
   }

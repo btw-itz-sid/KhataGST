@@ -15,6 +15,8 @@ import Invoices from "./pages/Invoices";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import Profile from "./pages/Profile";
 import Scan from "./pages/Scan";
 import AiCaCopilot from "./pages/AiCaCopilot";
@@ -43,7 +45,9 @@ type Route =
   | "reconcile"
   | "gst-rates"
   | "profile"
-  | "pricing";
+  | "pricing"
+  | "privacy"
+  | "terms";
 
 // BASE_URL comes from VITE_API_BASE_URL env var (defined in frontend/.env)
 // → src/lib/api.ts
@@ -267,19 +271,23 @@ export default function App() {
 
   // ── Navigate function — auth gaurd ke saath ───────────────────────────
   function navigate(nextRoute: Route) {
+    const publicRoutes: Route[] = ["login", "privacy", "terms"];
+
+    // Public legal pages — session optional
+    if (publicRoutes.includes(nextRoute)) {
+      setRoute(nextRoute);
+      return;
+    }
+
     // Agar session expire ho gayi toh login pe bhejo
-    if (nextRoute !== "login" && !hasValidSession()) {
+    if (!hasValidSession()) {
       clearSession();
       setRoute("login");
       return;
     }
 
     // Agar onboarding pending hai (business nahi hai) toh pehle woh complete karo
-    if (
-      nextRoute !== "login" &&
-      nextRoute !== "onboarding" &&
-      !getBusinessContext()?.id
-    ) {
+    if (nextRoute !== "onboarding" && !getBusinessContext()?.id) {
       setRoute("onboarding");
       return;
     }
@@ -348,8 +356,15 @@ export default function App() {
     );
   }
 
-  // Login aur onboarding pe bottom nav nahi dikhana, admin aur gst-rates pe bhi nahi
-  const showNav = route !== "login" && route !== "onboarding" && route !== "admin" && route !== "gst-rates" && route !== "pricing";
+  // Login / legal / onboarding pe bottom nav nahi
+  const showNav =
+    route !== "login" &&
+    route !== "onboarding" &&
+    route !== "admin" &&
+    route !== "gst-rates" &&
+    route !== "pricing" &&
+    route !== "privacy" &&
+    route !== "terms";
 
   return (
     // Bottom nav ke liye neeche padding do
@@ -357,8 +372,15 @@ export default function App() {
 
       {/* ── Login Page ─────────────────────────────────────────────── */}
       {route === "login" && (
-        <Login onSuccess={handleLoginSuccess} />
+        <Login
+          onSuccess={handleLoginSuccess}
+          onOpenPrivacy={() => setRoute("privacy")}
+          onOpenTerms={() => setRoute("terms")}
+        />
       )}
+
+      {route === "privacy" && <Privacy navigate={navigate} />}
+      {route === "terms" && <Terms navigate={navigate} />}
 
       {/* ── Onboarding — pehli baar business setup ─────────────────── */}
       {route === "onboarding" && (

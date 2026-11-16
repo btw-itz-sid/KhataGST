@@ -18,6 +18,8 @@ import type { StoredBusinessContext } from "../lib/session";
 // Props — parent App.tsx se onSuccess milta hai
 interface Props {
   onSuccess: (token: string, business: StoredBusinessContext | null) => void;
+  onOpenPrivacy?: () => void;
+  onOpenTerms?: () => void;
 }
 
 // Login ka flow — teen steps hain
@@ -70,7 +72,7 @@ const FEATURES = [
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Login Component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Login({ onSuccess }: Props) {
+export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) {
   // Current step — phone → otp → loading
   const [step, setStep] = useState<Step>("phone");
 
@@ -322,8 +324,14 @@ export default function Login({ onSuccess }: Props) {
                 {/* Terms */}
                 <p className="auth-terms">
                   By continuing, you agree to our{" "}
-                  <a href="#" className="auth-link">Terms of Service</a> and{" "}
-                  <a href="#" className="auth-link">Privacy Policy</a>.
+                  <button type="button" className="auth-link" onClick={onOpenTerms}>
+                    Terms of Service
+                  </button>{" "}
+                  and{" "}
+                  <button type="button" className="auth-link" onClick={onOpenPrivacy}>
+                    Privacy Policy
+                  </button>
+                  .
                 </p>
               </>
             )}
@@ -567,7 +575,7 @@ a{color:inherit;text-decoration:none}
 
 /* Terms */
 .auth-terms{font-size:12px;color:#9ca3af;line-height:1.6;text-align:center}
-.auth-link{color:#f97316;text-decoration:underline}
+.auth-link{color:#f97316;text-decoration:underline;background:none;border:none;padding:0;font:inherit;cursor:pointer}
 
 /* OTP Grid */
 .otp-grid{
