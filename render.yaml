@@ -1,0 +1,29 @@
+# Free-tier Render blueprint for KhataGST backend
+# Dashboard: New → Blueprint → connect this repo
+# After deploy, set secrets in the Render dashboard (DATABASE_URL, JWT_SECRET, …)
+
+services:
+  - type: web
+    name: khatagst-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OTP_MODE
+        value: phone_last4
+      # PORT is injected by Render automatically
+      # Set these as "Secret" in Render dashboard:
+      # DATABASE_URL, JWT_SECRET, GEMINI_API_KEY, FRONTEND_URL
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
