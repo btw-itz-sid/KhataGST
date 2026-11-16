@@ -1,6 +1,11 @@
 import { clearSession, getToken } from "./session";
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+// Vercel UI sometimes rejects underscores — accept both spellings.
+const LIVE_API = "https://khatagst.onrender.com/api/v1";
+export const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITEAPIBASEURL ||
+  (import.meta.env.PROD ? LIVE_API : "/api/v1");
 export const UNAUTHORIZED_EVENT = "khatagst:unauthorized";
 
 type ApiRecord = Record<string, unknown>;
