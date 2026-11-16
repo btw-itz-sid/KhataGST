@@ -5,27 +5,31 @@
 ### **The Autonomous AI Chartered Accountant for Indian MSMEs**
 *Autonomous GST Compliance • Section 17(5) ITC Optimization • Statutory Tax RAG • Deterministic Return Filing*
 
-[![Status](https://img.shields.io/badge/Status-Enterprise--Ready-00C853?style=for-the-badge&logo=statuspage&logoColor=white)](https://github.com/btw-itz-sid/KhataGST)
+[![Live App](https://img.shields.io/badge/Live_App-khata--gst.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://khata-gst.vercel.app)
+[![Live API](https://img.shields.io/badge/Live_API-khatagst.onrender.com-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://khatagst.onrender.com)
+[![Health](https://img.shields.io/badge/Health-/health-0A7A3E?style=for-the-badge)](https://khatagst.onrender.com/health)
 [![Backend](https://img.shields.io/badge/Backend-Fastify%20%7C%20TypeScript%20%7C%20Node.js-000000?style=for-the-badge&logo=fastify&logoColor=white)](https://github.com/btw-itz-sid/KhataGST)
-[![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite%20%7C%20Tailwind-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://github.com/btw-itz-sid/KhataGST)
-[![Database](https://img.shields.io/badge/Database-Neon%20PostgreSQL%20%28pgvector%29-00E599?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
-[![AI Engine](https://img.shields.io/badge/AI-Google%20Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![Storage](https://img.shields.io/badge/Cloud%20Storage-AWS%20S3%20%2F%20Cloudflare%20R2-FF9900?style=for-the-badge&logo=amazons3&logoColor=white)](https://aws.amazon.com/s3/)
+[![Frontend](https://img.shields.io/badge/Frontend-React%20%7C%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://github.com/btw-itz-sid/KhataGST)
+[![Database](https://img.shields.io/badge/Database-Neon%20PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
+[![AI](https://img.shields.io/badge/AI-Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
 
 <br />
+
+**Try it:** [https://khata-gst.vercel.app](https://khata-gst.vercel.app) · API [https://khatagst.onrender.com](https://khatagst.onrender.com)
+
+Demo login OTP = phone ke **last 4 digits**. Render free tier pe pehla hit ~30–60s cold start.
 
 [Explore Features](#-key-capabilities) • [System Architecture](#-system-architecture) • [Statutory AI CA](#-autonomous-ai-ca--tax-rag-engine) • [API Reference](#-complete-api-reference) • [Getting Started](#-getting-started) • [Deployment](#-production-deployment)
 
 <br />
 
-### 🔴 Live demo
+### Live URLs
 | | URL |
 |---|---|
-| **App (Vercel)** | https://khata-gst.vercel.app |
-| **API (Render)** | https://khatagst.onrender.com |
+| **App** | https://khata-gst.vercel.app |
+| **API** | https://khatagst.onrender.com |
 | **Health** | https://khatagst.onrender.com/health |
-
-Login OTP (demo): phone number ke **last 4 digits** (`OTP_MODE=phone_last4`). Free Render cold-start ~30–60s pehle hit pe.
+| **Portfolio** | https://portfolio1-btw-itz-sids-projects.vercel.app/ |
 
 ---
 
