@@ -1,13 +1,17 @@
 # KhataGST — Go-Live Checklist
 
+## Live URLs (16 Nov 2026)
+- **App:** https://khata-gst.vercel.app
+- **API:** https://khatagst.onrender.com · Health: `/health`
+- OTP demo: phone ke **last 4 digits**
+
 ## 1. Code already on `main`
 - [x] GST loop + ITC + 2B reconcile + plan limits
 - [x] OTP `phone_last4` (SMS later via `OTP_MODE=fast2sms`)
 - [x] Privacy / Terms / account delete
 
-## 2. Backend (Railway) — ⚠️ BLOCKER as of 16 Nov 2026
-**Sid's Projects trial is expired** (`Trial Ended` on railway.com/dashboard).  
-Services show `0/1 online` until you upgrade Hobby (~$5/mo) or move host.
+## 2. Backend (Railway) — trial expired; using Render free instead
+Railway Hobby trial ended. Active path: **Render free** below.
 
 ### Option A — Upgrade Railway (fastest)
 1. Dashboard → **Upgrade now** → Hobby plan

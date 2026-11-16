@@ -16,6 +16,17 @@
 
 [Explore Features](#-key-capabilities) • [System Architecture](#-system-architecture) • [Statutory AI CA](#-autonomous-ai-ca--tax-rag-engine) • [API Reference](#-complete-api-reference) • [Getting Started](#-getting-started) • [Deployment](#-production-deployment)
 
+<br />
+
+### 🔴 Live demo
+| | URL |
+|---|---|
+| **App (Vercel)** | https://khata-gst.vercel.app |
+| **API (Render)** | https://khatagst.onrender.com |
+| **Health** | https://khatagst.onrender.com/health |
+
+Login OTP (demo): phone number ke **last 4 digits** (`OTP_MODE=phone_last4`). Free Render cold-start ~30–60s pehle hit pe.
+
 ---
 
 </div>
@@ -427,21 +438,23 @@ npm run dev
 
 ## 🌐 Production Deployment
 
-### Backend Deployment (Railway)
-1. Link your GitHub repository to [Railway](https://railway.app).
-2. Set the root directory or configure via the included `railway.toml`:
-   - **Build Command**: `cd backend && npm install && npm run build`
-   - **Start Command**: `cd backend && node dist/index.js`
-   - **Health Check Path**: `/health`
-3. Add all environment variables from `backend/.env.example` in the Railway dashboard.
+**Current free-tier live stack**
+- Frontend: [khata-gst.vercel.app](https://khata-gst.vercel.app)
+- Backend: [khatagst.onrender.com](https://khatagst.onrender.com) (`FRONTEND_URL` / CORS allow Vercel)
+- DB: Neon Postgres · OTP: `phone_last4` until SMS paid
 
-### Frontend Deployment (Vercel)
-1. Link your GitHub repository to [Vercel](https://vercel.com).
-2. Set the **Root Directory** to `frontend`.
-3. Set the **Framework Preset** to `Vite`.
-4. Configure the environment variable:
-   - `VITE_API_BASE_URL`: `https://api.yourdomain.com/api/v1`
-5. Deploy.
+### Backend (Render free — active)
+1. New Web Service from this repo · Root: `backend` · Build: `npm install && npm run build` · Start: `node dist/index.js`
+2. Env: `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET` (≥32), `OTP_MODE=phone_last4`, `GEMINI_API_KEY`, `FRONTEND_URL=https://khata-gst.vercel.app`
+3. Health: `GET /health`
+
+### Frontend (Vercel)
+1. Import repo · Root Directory: `frontend` · Framework: Vite
+2. Env (optional if prod fallback baked): `VITE_API_BASE_URL=https://khatagst.onrender.com/api/v1`
+3. Deploy → production URL `https://khata-gst.vercel.app`
+
+### Railway (optional paid)
+Use included `railway.toml` if you prefer always-on hosting instead of Render free cold starts.
 
 ---
 
