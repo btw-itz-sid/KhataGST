@@ -9,20 +9,33 @@ import { z } from "zod";
 import { sendPaymentSuccessEmail } from "../services/emailService.js";
 import { logAuditEvent } from "../middleware/rbac.js";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_SECRET || "",
-});
-
 const PLAN_PRICES: Record<string, number> = {
   basic: 14900,   // ₹149 in paise
   ca_pro: 49900,  // ₹499 in paise
 };
 
+/** Lazy client — missing keys must not crash boot (free / demo deploys). */
+function getRazorpay(): Razorpay | null {
+  const key_id = process.env.RAZORPAY_KEY_ID?.trim();
+  const key_secret = process.env.RAZORPAY_SECRET?.trim();
+  if (!key_id || !key_secret) return null;
+  return new Razorpay({ key_id, key_secret });
+}
+
 export async function paymentRoutes(app: FastifyInstance) {
   // POST /api/v1/payments/order — Create a new payment order
   app.post("/order", { preHandler: [app.authenticate] }, async (request, reply) => {
     const { userId } = request.user as any;
+    const razorpay = getRazorpay();
+    if (!razorpay) {
+      return reply.status(503).send({
+        success: false,
+        error: {
+          code: "PAYMENTS_DISABLED",
+          message: "Razorpay keys set nahi hain — baad mein payments on karenge",
+        },
+      });
+    }
 
     const schema = z.object({
       plan: z.enum(["basic", "ca_pro"]),
