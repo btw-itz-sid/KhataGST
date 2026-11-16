@@ -42,10 +42,39 @@ server.addHook("onRequest", async (request, reply) => {
 });
 
 // ── Plugins register karo ────────────────────────────────────
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  if (process.env.NODE_ENV !== "production") return true;
+
+  const configured = (process.env.FRONTEND_URL || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const defaults = [
+    "https://khata-gst.vercel.app",
+    "https://app.khatagst.com",
+  ];
+
+  if (configured.includes(origin) || defaults.includes(origin)) return true;
+
+  try {
+    const host = new URL(origin).hostname;
+    // Vercel preview / project aliases for this team
+    if (host.endsWith(".vercel.app") && host.includes("btw-itz-sids-projects")) {
+      return true;
+    }
+  } catch {
+    /* ignore invalid Origin */
+  }
+
+  return false;
+}
+
 server.register(cors, {
-  origin: process.env.NODE_ENV === "production"
-    ? (process.env.FRONTEND_URL || "https://app.khatagst.com")
-    : true,
+  origin: (origin, cb) => {
+    cb(null, isAllowedOrigin(origin));
+  },
   credentials: true,
 });
 
