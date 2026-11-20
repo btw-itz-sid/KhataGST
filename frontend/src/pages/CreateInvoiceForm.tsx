@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import "./CreateInvoiceForm.css";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { apiFetch, getApiErrorMessage } from "../lib/api";
 import { INDIAN_STATES } from "../lib/indianStates";
 import { getBusinessContext } from "../lib/session";
@@ -51,6 +52,22 @@ const EMPTY_ITEM: LineItem = {
 };
 
 export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
+  const dialogRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const previous=document.activeElement as HTMLElement|null;
+    const overflow=document.body.style.overflow;document.body.style.overflow="hidden";
+    const panel=dialogRef.current;panel?.querySelector<HTMLInputElement>("input")?.focus();
+    const handleKey=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"){event.preventDefault();onClose();}
+      if(event.key!=="Tab"||!panel)return;
+      const controls=Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')).filter(el=>el.getClientRects().length);
+      const first=controls[0],last=controls[controls.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+    };
+    document.addEventListener("keydown",handleKey);
+    return()=>{document.body.style.overflow=overflow;document.removeEventListener("keydown",handleKey);previous?.focus();};
+  },[onClose]);
   const [invoiceType, setInvoiceType] = useState<"sale" | "purchase">("sale");
   const [invoiceNumber, setInvoiceNumber] = useState(suggestedNumber);
   const [invoiceDate, setInvoiceDate] = useState(todayIso);
@@ -231,8 +248,8 @@ export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="create-overlay" role="dialog" aria-modal="true" aria-labelledby="create-invoice-title">
-      <style>{CREATE_STYLES}</style>
+    <div ref={dialogRef} className="create-overlay" role="dialog" aria-modal="true" aria-labelledby="create-invoice-title">
+
       <form className="create-sheet" onSubmit={submit}>
         <div className="create-head">
           <div>
@@ -244,7 +261,7 @@ export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
           <button type="button" className="create-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        {error && <div className="create-error">{error}</div>}
+        {error && <div className="create-error" role="alert">{error}</div>}
 
         <div className="create-tabs">
           <button type="button" className={invoiceType === "sale" ? "on" : ""} onClick={() => setInvoiceType("sale")}>Sale</button>
@@ -378,47 +395,3 @@ export default function CreateInvoiceForm({ onClose, onCreated }: Props) {
     </div>
   );
 }
-
-const CREATE_STYLES = `
-.create-overlay{position:fixed;inset:0;z-index:300;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center;padding:12px}
-.create-sheet{width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:16px 16px 12px 12px;padding:20px;display:flex;flex-direction:column;gap:12px}
-.create-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-.create-kicker{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af}
-.create-head h2{font-size:18px;margin-top:4px}
-.create-close{border:none;background:#f3f4f6;border-radius:8px;width:32px;height:32px;cursor:pointer}
-.create-error{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:13px}
-.create-tabs{display:flex;gap:8px;background:#f3f4f6;padding:4px;border-radius:9px}
-.create-tabs button{flex:1;border:none;background:transparent;padding:8px;border-radius:7px;font-weight:700;cursor:pointer;color:#6b7280}
-.create-tabs .on{background:#fff;color:#111827;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.create-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.create-grid label,.create-sheet .full{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:#6b7280}
-.create-grid .full{grid-column:1/-1}
-.create-sheet input,.create-sheet select{padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;color:#111827;font-weight:500}
-.party-field{position:relative}
-.party-list{position:absolute;left:0;right:0;top:100%;z-index:5;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-height:180px;overflow:auto}
-.party-option{width:100%;display:flex;justify-content:space-between;gap:8px;padding:10px 12px;border:none;background:#fff;cursor:pointer;text-align:left}
-.party-option:hover{background:#fff7ed}
-.party-option strong{font-size:13px;color:#111827}
-.party-option span{font-size:11px;color:#6b7280;font-family:'JetBrains Mono',monospace}
-.create-lines-label{font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em}
-.create-line-wrap{display:flex;flex-direction:column;gap:6px}
-.create-line{display:grid;grid-template-columns:2fr .8fr .6fr .8fr .7fr auto;gap:8px}
-.hsn-hints{display:flex;flex-wrap:wrap;gap:6px}
-.hsn-hint{border:1px solid #fed7aa;background:#fff7ed;border-radius:8px;padding:6px 8px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px}
-.hsn-hint strong{font-family:'JetBrains Mono',monospace;font-size:12px;color:#9a3412}
-.hsn-hint span{font-size:11px;color:#9a3412}
-.add-line,.line-remove,.ghost,.save{border:none;cursor:pointer;font-weight:700}
-.add-line{align-self:flex-start;background:#fff7ed;color:#c2410c;padding:8px 12px;border-radius:8px}
-.line-remove{background:#fee2e2;color:#991b1b;border-radius:8px;padding:0 10px}
-.create-total{display:flex;justify-content:space-between;align-items:center;padding-top:4px;font-size:13px}
-.create-total strong{font-family:'JetBrains Mono',monospace;font-size:16px;color:#f97316}
-.create-actions{display:flex;justify-content:flex-end;gap:8px}
-.ghost{background:#f3f4f6;color:#374151;padding:10px 14px;border-radius:8px}
-.save{background:#f97316;color:#fff;padding:10px 16px;border-radius:8px}
-.save:disabled{opacity:.6}
-@media(max-width:720px){
-  .create-grid,.create-line{grid-template-columns:1fr}
-  .create-overlay{align-items:stretch}
-  .create-sheet{max-height:100vh;border-radius:0}
-}
-`;

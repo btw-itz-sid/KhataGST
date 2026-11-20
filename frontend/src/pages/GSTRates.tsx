@@ -182,14 +182,14 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-4">
+    <div className="utility-page min-h-screen bg-zinc-50 text-zinc-900 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header with back button */}
         <div className="mb-8 flex items-center gap-3">
           {navigate && (
             <button
               onClick={() => navigate("dashboard")}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
+              className="p-2 rounded-none bg-white hover:bg-zinc-100 border border-zinc-200 transition-colors"
               aria-label="Back to dashboard"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -199,19 +199,19 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
             </button>
           )}
           <div>
-            <h1 className="text-3xl font-bold mb-1">GST Rate Master</h1>
-            <p className="text-slate-400">HSN/SAC codes ke liye GST rates maintain karo</p>
+            <h1 className="text-3xl font-semibold mb-1">GST Rate Master</h1>
+            <p className="text-zinc-500">HSN/SAC codes ke liye GST rates maintain karo</p>
           </div>
         </div>
 
         {/* Error/Success messages */}
         {error && (
-          <div className="mb-4 p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-300">
+          <div className="mb-4 p-4 bg-zinc-50 border border-red-200 rounded-none text-red-700">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 p-4 bg-green-900/20 border border-green-700 rounded-lg text-green-300">
+          <div className="mb-4 p-4 bg-zinc-50 border border-zinc-200 rounded-none text-zinc-700">
             {success}
           </div>
         )}
@@ -220,16 +220,18 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
           <input
             type="text"
-            placeholder="HSN/SAC search karo..."
+            aria-label="Search HSN or SAC code"
+            placeholder="Search HSN / SAC code"
             value={searchHsn}
             onChange={(e) => setSearchHsn(e.target.value)}
-            className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:border-blue-500 outline-none"
+            className="px-4 py-2 bg-white border border-zinc-200 rounded-none text-zinc-900 placeholder-slate-500 focus:border-zinc-900 outline-none"
           />
 
           <select
+            aria-label="Filter by GST rate"
             value={searchRate}
             onChange={(e) => setSearchRate(e.target.value)}
-            className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-blue-500 outline-none"
+            className="px-4 py-2 bg-white border border-zinc-200 rounded-none text-zinc-900 focus:border-zinc-900 outline-none"
           >
             <option value="">Sab rates</option>
             <option value="0">0%</option>
@@ -242,7 +244,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
           <button
             onClick={handleSearch}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium disabled:opacity-50"
+            className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 rounded-none font-medium disabled:opacity-50"
           >
             Search
           </button>
@@ -253,7 +255,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
               setEditingId(null);
               setFormData({ hsn_sac: "", description: "", gst_rate: "", notes: "" });
             }}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium"
+            className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 rounded-none font-medium"
           >
             + Add GST Rate
           </button>
@@ -261,26 +263,26 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
 
         {/* Add/Edit Form */}
         {showForm && (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6 backdrop-blur-sm">
+          <div className="bg-white border border-zinc-200 rounded-none p-6 mb-6 ">
             <h2 className="text-xl font-semibold mb-4">
               {editingId ? "Rate Update Karo" : "Naya Rate Add Karo"}
             </h2>
 
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm text-slate-400 mb-2 block">HSN/SAC Code (agar new ho)</label>
+                <label className="text-sm text-zinc-500 mb-2 block">HSN/SAC Code (agar new ho)</label>
                 <input
                   type="text"
                   placeholder="eg: 5410"
                   value={formData.hsn_sac}
                   onChange={(e) => setFormData({ ...formData, hsn_sac: e.target.value.toUpperCase() })}
                   disabled={!!editingId}
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:border-blue-500 outline-none disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-zinc-100 border border-zinc-300 rounded-none text-zinc-900 placeholder-slate-500 focus:border-zinc-900 outline-none disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="text-sm text-slate-400 mb-2 block">GST Rate (%)</label>
+                <label className="text-sm text-zinc-500 mb-2 block">GST Rate (%)</label>
                 <input
                   type="number"
                   placeholder="eg: 18"
@@ -289,29 +291,29 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
                   step="0.01"
                   value={formData.gst_rate}
                   onChange={(e) => setFormData({ ...formData, gst_rate: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:border-blue-500 outline-none"
+                  className="w-full px-4 py-2 bg-zinc-100 border border-zinc-300 rounded-none text-zinc-900 placeholder-slate-500 focus:border-zinc-900 outline-none"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-sm text-slate-400 mb-2 block">Description</label>
+                <label className="text-sm text-zinc-500 mb-2 block">Description</label>
                 <input
                   type="text"
                   placeholder="eg: Cotton Fabrics"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:border-blue-500 outline-none"
+                  className="w-full px-4 py-2 bg-zinc-100 border border-zinc-300 rounded-none text-zinc-900 placeholder-slate-500 focus:border-zinc-900 outline-none"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-sm text-slate-400 mb-2 block">Notes</label>
+                <label className="text-sm text-zinc-500 mb-2 block">Notes</label>
                 <textarea
                   placeholder="eg: Effective from..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:border-blue-500 outline-none"
+                  className="w-full px-4 py-2 bg-zinc-100 border border-zinc-300 rounded-none text-zinc-900 placeholder-slate-500 focus:border-zinc-900 outline-none"
                 />
               </div>
 
@@ -319,7 +321,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 rounded-none font-medium disabled:opacity-50"
                 >
                   {editingId ? "Update Karo" : "Add Karo"}
                 </button>
@@ -330,7 +332,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
                     setEditingId(null);
                     setFormData({ hsn_sac: "", description: "", gst_rate: "", notes: "" });
                   }}
-                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium"
+                  className="flex-1 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 rounded-none font-medium"
                 >
                   Cancel
                 </button>
@@ -340,55 +342,55 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
         )}
 
         {/* Rates Table */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden backdrop-blur-sm">
+        <div className="bg-white border border-zinc-200 rounded-none overflow-hidden ">
           {loading && !showForm ? (
             <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-slate-400">Load ho raha hai...</p>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900"></div>
+              <p className="mt-4 text-zinc-500">Load ho raha hai...</p>
             </div>
           ) : rates.length === 0 ? (
-            <div className="p-8 text-center text-slate-400">
+            <div className="p-8 text-center text-zinc-500">
               Koi rate nahi mila
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700 bg-slate-900/50">
-                    <th className="text-left py-3 px-4 text-slate-400">HSN/SAC</th>
-                    <th className="text-left py-3 px-4 text-slate-400">Description</th>
-                    <th className="text-center py-3 px-4 text-slate-400">GST Rate</th>
-                    <th className="text-left py-3 px-4 text-slate-400">Effective From</th>
-                    <th className="text-center py-3 px-4 text-slate-400">Actions</th>
+                  <tr className="border-b border-zinc-200 bg-zinc-50">
+                    <th className="text-left py-3 px-4 text-zinc-500">HSN/SAC</th>
+                    <th className="text-left py-3 px-4 text-zinc-500">Description</th>
+                    <th className="text-center py-3 px-4 text-zinc-500">GST Rate</th>
+                    <th className="text-left py-3 px-4 text-zinc-500">Effective From</th>
+                    <th className="text-center py-3 px-4 text-zinc-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rates.map((rate) => (
-                    <tr key={rate.id} className="border-b border-slate-700/50 hover:bg-slate-700/20">
-                      <td className="py-3 px-4 font-mono text-blue-400 font-semibold">
+                    <tr key={rate.id} className="border-b border-zinc-200 hover:bg-zinc-50">
+                      <td className="py-3 px-4 font-mono text-zinc-700 font-semibold">
                         {rate.hsn_sac}
                       </td>
-                      <td className="py-3 px-4 text-slate-300">
+                      <td className="py-3 px-4 text-zinc-700">
                         {rate.description || "-"}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="bg-slate-700 px-3 py-1 rounded font-semibold">
-                          {rate.gst_rate.toFixed(2)}%
+                        <span className="bg-zinc-100 px-3 py-1 rounded font-semibold">
+                          {Number(rate.gst_rate).toFixed(2)}%
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-400 text-sm">
+                      <td className="py-3 px-4 text-zinc-500 text-sm">
                         {new Date(rate.effective_from).toLocaleDateString("en-IN")}
                       </td>
                       <td className="py-3 px-4 text-center space-x-2">
                         <button
                           onClick={() => handleEdit(rate)}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium"
+                          className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 rounded-none text-xs font-medium"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(rate.id)}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs font-medium"
+                          className="px-3 py-1 bg-white hover:bg-red-50 border border-red-200 text-red-700 rounded-none text-xs font-medium"
                         >
                           Delete
                         </button>
@@ -402,7 +404,7 @@ export default function GSTRates({ navigate }: { navigate?: (route: any) => void
         </div>
 
         {/* Info box */}
-        <div className="mt-6 p-4 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-400 text-sm">
+        <div className="mt-6 p-4 bg-white border border-zinc-200 rounded-none text-zinc-500 text-sm">
           <strong>💡 Tip:</strong> HSN/SAC codes International Classification of Products (ICP) par based hote hain. 
           Har product category ka ek unique code aur GST rate hota hai.
         </div>

@@ -1,3 +1,4 @@
+@import "tailwindcss";
 /* ─────────────────────────────────────────────────────────────────────────────
    index.css — KhataGST ka global CSS reset
    Yahan sirf base styles hain — baaki sab har component ke andar hai
@@ -6,8 +7,8 @@
 
 /* CSS variables — poore app mein consistent colors */
 :root {
-  --brand:      #f97316;   /* KhataGST orange */
-  --brand-dark: #ea580c;
+  --brand:      #18181b;   /* KhataGST orange */
+  --brand-dark: #3f3f46;
   --bg:         #f9fafb;   /* Light gray background */
   --surface:    #ffffff;   /* Card white */
   --border:     #e5e7eb;   /* Subtle borders */
@@ -23,13 +24,7 @@
 }
 
 /* Universal box-sizing */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+
 
 /* Base layout — poora screen height */
 html,

@@ -1,3 +1,4 @@
+import "./Returns.css";
 import { useState } from "react";
 import { apiFetch, getApiErrorMessage } from "../lib/api";
 import { getBusinessContext } from "../lib/session";
@@ -138,7 +139,8 @@ export default function Returns({ navigate }: Props) {
     }
   }
 
-  async function markPrepared(id?: string, label?: string) {
+
+async function markPrepared(id?: string, label?: string) {
     if (!id) {
       setStatus({ ok: false, text: "Pehle return compute karo." });
       return;
@@ -206,7 +208,7 @@ export default function Returns({ navigate }: Props) {
 
   return (
     <>
-      <style>{STYLES}</style>
+
       <header className="topbar">
         <button className="back-btn" onClick={() => navigate("dashboard")}>
           ← Dashboard
@@ -393,55 +395,3 @@ export default function Returns({ navigate }: Props) {
     </>
   );
 }
-
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=JetBrains+Mono:wght@600;700&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#f9fafb;font-family:'Inter',sans-serif;color:#111827}
-button,input,select{font-family:inherit;outline:none}
-.topbar{position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:16px;padding:0 20px;height:56px;background:#fff;border-bottom:1px solid #e5e7eb}
-.topbar-brand{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#111827;flex:1;text-align:center}
-.back-btn{padding:7px 12px;border-radius:7px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#374151;cursor:pointer}
-.page{max-width:860px;margin:0 auto;padding:28px 20px 100px;display:flex;flex-direction:column;gap:16px}
-.page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9ca3af;margin-bottom:6px}
-.page-title{font-size:24px;font-weight:800;color:#111827;margin-bottom:6px}
-.page-desc{font-size:14px;color:#6b7280;line-height:1.6}
-.banner{padding:12px 16px;border-radius:9px;font-size:14px;font-weight:500}
-.banner-ok{background:#d1fae5;border:1px solid #6ee7b7;color:#065f46}
-.banner-err{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
-.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px}
-.card-title{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}
-.card-copy{font-size:13px;color:#6b7280;line-height:1.55}
-.period-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.field-label{display:flex;flex-direction:column;gap:6px}
-.field-label span{font-size:12px;font-weight:600;color:#6b7280}
-.select-input{padding:10px 12px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;font-size:14px}
-.period-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border-radius:8px;background:#0f172a;color:#fff}
-.period-name{font-size:16px;font-weight:700}
-.period-sub{font-size:12px;color:rgba(255,255,255,.5)}
-.period-badge{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#f97316}
-.compute-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.format-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-.btn-pri,.btn-sec,.download-btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 16px;border-radius:8px;font-size:14px;font-weight:700;border:none;cursor:pointer}
-.btn-pri{background:#f97316;color:#fff}
-.btn-sec{background:#fff;color:#374151;border:1px solid #d1d5db}
-.btn-pri:disabled,.btn-sec:disabled,.download-btn:disabled{opacity:.6;cursor:not-allowed}
-.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.kpi-row span{display:block;font-size:11px;color:#9ca3af;font-weight:600}
-.kpi-row strong{font-family:'JetBrains Mono',monospace;font-size:13px}
-.mini{font-size:12px;color:#6b7280}
-.section-label{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b7280}
-.format-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px}
-.format-title{font-size:17px;font-weight:700}
-.format-desc{font-size:13px;color:#6b7280;line-height:1.6;flex:1}
-.download-btn-green{background:#059669;color:#fff}
-.download-btn-blue{background:#2563eb;color:#fff}
-.download-btn-orange{background:#ea580c;color:#fff}
-@media(max-width:900px){
-  .format-grid{grid-template-columns:1fr 1fr}
-}
-@media(max-width:640px){
-  .page{padding:20px 14px 100px}
-  .compute-grid,.format-grid,.period-grid,.kpi-row{grid-template-columns:1fr}
-}
-`;

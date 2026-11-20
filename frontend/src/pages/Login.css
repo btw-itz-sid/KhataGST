@@ -1,0 +1,213 @@
+/* Page-specific layout; shared visual tokens live in styles/theme.css. */
+
+[data-screen="login"] *{box-sizing:border-box;margin:0;padding:0}
+[data-screen="login"]{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;background:#f9fafb}
+[data-screen="login"] button,[data-screen="login"] input{font-family:var(--font-sans);outline:none;cursor:pointer;border:none}
+[data-screen="login"] a{color:inherit;text-decoration:none}
+
+/* ── Auth Layout — 2 panels ─────────────────────────────────────────────── */
+[data-screen="login"] .auth-wrap{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  min-height:100vh;
+}
+
+/* ── LEFT PANEL — Dark branding ─────────────────────────────────────────── */
+[data-screen="login"] .brand-panel{
+  background:var(--ui-ink);
+  color:#fff;
+  padding:48px;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  position:relative;
+  overflow:hidden;
+}
+[data-screen="login"] .brand-panel::before{
+  content:'';position:absolute;
+  top:-120px;right:-80px;
+  width:400px;height:400px;border-radius:0;
+  background:var(--ui-canvas);
+  pointer-events:none;
+}
+[data-screen="login"] .brand-logo{
+  font-family:var(--font-mono);
+  font-size:22px;font-weight:600;color:#fff;
+  margin-bottom:auto;
+}
+[data-screen="login"] .brand-logo span{color:var(--ui-ink)}
+
+[data-screen="login"] .brand-content{
+  padding:40px 0;
+  display:flex;flex-direction:column;gap:20px;
+}
+[data-screen="login"] .brand-eyebrow{
+  font-size:12px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ui-ink);
+}
+[data-screen="login"] .brand-headline{
+  font-size:clamp(28px,3.5vw,42px);
+  font-weight:600;line-height:1.1;letter-spacing:-.03em;
+  color:#fff;
+}
+[data-screen="login"] .brand-desc{
+  font-size:15px;line-height:1.7;color:rgba(255,255,255,.55);
+  max-width:40ch;
+}
+
+/* Feature list */
+[data-screen="login"] .feature-list{list-style:none;display:flex;flex-direction:column;gap:14px}
+[data-screen="login"] .feature-item{
+  display:flex;align-items:center;gap:12px;
+  font-size:14px;color:rgba(255,255,255,.75);
+}
+[data-screen="login"] .feature-icon{
+  width:36px;height:36px;border-radius:0;
+  background:rgba(24,24,27,.1);border:1px solid rgba(24,24,27,.2);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ui-ink);flex-shrink:0;
+}
+
+[data-screen="login"] .brand-footer{
+  font-size:12px;color:rgba(255,255,255,.3);
+  margin-top:auto;padding-top:32px;
+}
+
+/* ── RIGHT PANEL — Auth Form ─────────────────────────────────────────────── */
+[data-screen="login"] .form-panel{
+  background:#f9fafb;
+  display:flex;align-items:center;justify-content:center;
+  padding:32px 24px;
+}
+[data-screen="login"] .auth-card{
+  background:#fff;border:1px solid #e5e7eb;
+  border-radius:0;padding:36px 32px;
+  width:100%;max-width:420px;
+  display:flex;flex-direction:column;gap:16px;
+}
+[data-screen="login"] .mobile-logo{
+  display:none;
+  font-family:var(--font-mono);
+  font-size:20px;font-weight:600;color:var(--ui-ink);
+  margin-bottom:8px;
+}
+[data-screen="login"] .mobile-logo span{color:var(--ui-ink)}
+
+/* Card header text */
+[data-screen="login"] .auth-eyebrow{
+  font-size:12px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ui-muted);
+}
+[data-screen="login"] .auth-title{font-size:22px;font-weight:600;color:var(--ui-ink);letter-spacing:-.02em}
+[data-screen="login"] .auth-desc{font-size:14px;color:var(--ui-secondary);line-height:1.6}
+
+/* Error box */
+[data-screen="login"] .error-box{
+  padding:11px 14px;border-radius:0;
+  background:var(--ui-subtle);border:1px solid var(--ui-line);
+  color:var(--ui-ink);font-size:14px;font-weight:500;
+}
+
+/* Phone input */
+[data-screen="login"] .field-label{font-size:14px;font-weight:600;color:var(--ui-ink)}
+[data-screen="login"] .phone-row{
+  display:flex;align-items:center;
+  border:1px solid #e5e7eb;border-radius:0;
+  background:#fff;overflow:hidden;
+  transition:border-color .15s,box-shadow .15s;
+}
+[data-screen="login"] .phone-row:focus-within{
+  border-color:var(--ui-ink);box-shadow:none;
+}
+[data-screen="login"] .country-code{
+  padding:12px 14px;
+  font-size:14px;font-weight:600;color:var(--ui-ink);
+  border-right:1px solid #e5e7eb;background:#f9fafb;
+  flex-shrink:0;
+}
+[data-screen="login"] .phone-input{
+  flex:1;padding:12px 14px;border:none;
+  font-size:15px;font-weight:600;color:var(--ui-ink);background:transparent;
+  letter-spacing:.04em;
+}
+[data-screen="login"] .phone-input::placeholder{color:var(--ui-muted);font-weight:400;letter-spacing:0}
+
+/* Primary CTA button */
+[data-screen="login"] .primary-btn{
+  width:100%;padding:13px 20px;border-radius:0;
+  background:var(--ui-ink);color:#fff;
+  font-size:15px;font-weight:600;border:none;cursor:pointer;
+  box-shadow:none;
+  transition:all .15s;
+}
+[data-screen="login"] .primary-btn:hover:not(:disabled){
+  background:var(--ui-ink);
+  box-shadow:none;
+  transform:none;
+}
+[data-screen="login"] .primary-btn:disabled{
+  opacity:.4;cursor:not-allowed;transform:none;
+}
+
+/* Terms */
+[data-screen="login"] .auth-terms{font-size:12px;color:var(--ui-muted);line-height:1.6;text-align:center}
+[data-screen="login"] .auth-link{color:var(--ui-ink);text-decoration:underline;background:none;border:none;padding:0;font:inherit;cursor:pointer}
+
+/* OTP Grid */
+[data-screen="login"] .otp-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:10px;max-width:280px;margin:0 auto;width:100%;
+}
+[data-screen="login"] .otp-box{
+  width:100%;min-width:0;aspect-ratio:1;border-radius:0;
+  border:1px solid #e5e7eb;background:#f9fafb;
+  font-size:20px;font-weight:600;color:var(--ui-ink);
+  text-align:center;transition:all .15s;
+  font-family:var(--font-mono);
+}
+[data-screen="login"] .otp-box:focus{
+  border-color:var(--ui-ink);background:#fff;
+  box-shadow:none;outline:none;
+}
+[data-screen="login"] .otp-filled{background:#fff7f5;border-color:var(--ui-line)}
+
+/* Resend row */
+[data-screen="login"] .resend-row{
+  display:flex;align-items:center;justify-content:center;
+  gap:10px;font-size:14px;
+}
+[data-screen="login"] .resend-timer{color:var(--ui-muted);font-weight:500}
+[data-screen="login"] .resend-btn{
+  background:none;border:none;padding:0;
+  font-size:14px;font-weight:600;color:var(--ui-ink);cursor:pointer;
+  transition:color .15s;
+}
+[data-screen="login"] .resend-btn:hover{color:var(--ui-ink)}
+[data-screen="login"] .dot-sep{color:#d1d5db}
+
+/* Loading state */
+[data-screen="login"] .loading-state{
+  display:flex;flex-direction:column;align-items:center;
+  gap:14px;padding:20px 0;
+}
+[data-screen="login"] .auth-spinner{
+  width:36px;height:36px;border-radius:50%;
+  border:3px solid #e5e7eb;border-top-color:var(--ui-ink);
+  animation:spin .7s linear infinite;
+}
+[data-screen="login"] .loading-text{font-size:14px;color:var(--ui-secondary);text-align:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media(max-width:768px){
+  [data-screen="login"] .auth-wrap{grid-template-columns:1fr}
+  [data-screen="login"] .brand-panel{display:none}
+  [data-screen="login"] .form-panel{padding:24px 16px;min-height:100vh;background:#f9fafb}
+  [data-screen="login"] .auth-card{box-shadow:none;border:none;padding:28px 20px}
+  [data-screen="login"] .mobile-logo{display:block}
+}
+@media(max-width:400px){
+  [data-screen="login"] .otp-grid{gap:6px}
+  [data-screen="login"] .otp-box{font-size:18px}
+  [data-screen="login"] .auth-card{padding:20px 16px}
+}

@@ -1,0 +1,23 @@
+.workspace-sidebar { position:fixed; inset:0 auto 0 0; width:224px; z-index:150; background:#fff; border-right:1px solid #e4e4e7; display:flex; flex-direction:column; padding:28px 16px 20px; }
+.workspace-logo { font-size:21px; font-weight:600; letter-spacing:-.8px; padding:0 12px 28px; color:#18181b; }
+.workspace-logo span { font-weight:400; color:#71717a; }
+.workspace-label { font-size:11px; color:#71717a; font-weight:500; letter-spacing:.12em; padding:20px 12px 10px; }
+.workspace-links { display:flex; flex-direction:column; gap:4px; }
+.workspace-links button { min-height:42px; display:flex; align-items:center; gap:12px; padding:10px 12px; font-size:14px; font-weight:400; text-align:left; color:#52525b; border:1px solid transparent; background:#fff; }
+.workspace-links button:hover { background:#fafafa; color:#18181b; }
+.workspace-links button[aria-current="page"] { background:#f4f4f5; border-color:#e4e4e7; color:#18181b; font-weight:500; }
+.workspace-links svg { width:18px; height:18px; stroke-width:1.6; flex-shrink:0; }
+.workspace-sidebar-footer { margin-top:auto; padding:20px 12px 0; border-top:1px solid #e4e4e7; }
+.workspace-sidebar-footer p { font-size:12px; line-height:1.7; color:#71717a; }
+.workspace-sidebar-footer button { display:block; background:white; border:1px solid #e4e4e7; padding:10px 12px; width:100%; margin-bottom:12px; font-size:13px; color:#3f3f46; }
+.bottom-nav { display:none; }
+@media(max-width:1099px) {
+  .workspace-sidebar { display:none; }
+  .bottom-nav { position:fixed; inset:auto 0 0; z-index:300; display:flex; align-items:stretch; gap:2px; background:#fff; border-top:1px solid #e4e4e7; padding:8px 8px max(8px,env(safe-area-inset-bottom)); }
+  .nav-btn { flex:1; min-width:0; min-height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:#71717a; border:1px solid transparent; background:white; padding:6px 2px; }
+  .nav-btn:hover { background:#fafafa; }
+  .nav-btn[aria-current="page"] { background:#f4f4f5; border-color:#e4e4e7; color:#18181b; }
+  .nav-icon,.nav-scan-icon { display:flex; align-items:center; justify-content:center; width:24px; height:24px; background:transparent; color:inherit; box-shadow:none; }
+  .nav-label { font-size:11px; font-weight:500; line-height:1.3; }
+}
+@media(min-width:640px) and (max-width:1099px) { .bottom-nav { max-width:680px; left:50%; transform:translateX(-50%); bottom:12px; border:1px solid #e4e4e7; padding:8px; } }

@@ -36,31 +36,31 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div style={{
+        <div role="alert" style={{
           minHeight: "100vh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexDirection: "column",
           gap: "16px",
-          background: "#0a0a0f",
-          color: "#fff",
+          background: "#fafafa",
+          color: "#18181b",
           padding: "24px",
           textAlign: "center",
         }}>
           <div style={{ fontSize: "48px" }}>⚠️</div>
           <h2 style={{ fontSize: "20px", fontWeight: 600 }}>Kuch galat ho gaya</h2>
           <p style={{ color: "#888", fontSize: "14px", maxWidth: "360px" }}>
-            {this.state.error?.message || "Unexpected error"}
+            The page could not be displayed. Try again, or reload the application.
           </p>
           <button
             onClick={this.handleReset}
             style={{
               padding: "10px 24px",
-              background: "#6c63ff",
+              background: "#18181b",
               color: "#fff",
               border: "none",
-              borderRadius: "8px",
+              borderRadius: "0",
               cursor: "pointer",
               fontSize: "14px",
             }}

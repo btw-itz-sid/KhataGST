@@ -1,3 +1,4 @@
+import "./Login.css";
 // ─────────────────────────────────────────────────────────────────────────────
 // Login.tsx — KhataGST ka Authentication Page
 // Phone number enter karo → OTP aata hai → verify → dashboard
@@ -28,8 +29,8 @@ type Step = "phone" | "otp" | "loading";
 import { BASE_URL } from "../lib/api";
 
 // Abhi OTP = phone ke last 4 digits (SMS API baad mein)
-const OTP_LENGTH = 4;
-const EMPTY_OTP = Array.from({ length: OTP_LENGTH }, () => "");
+
+const emptyOtp = (length:number) => Array.from({length},()=>"");
 
 // KhataGST ke features jo left panel mein dikhenge
 const FEATURES = [
@@ -80,7 +81,9 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
   const [phone, setPhone] = useState("");
 
   // OTP digits array (6 separate inputs)
-  const [otp, setOtp] = useState<string[]>(EMPTY_OTP);
+  const [otp, setOtp] = useState<string[]>(emptyOtp(4));
+
+  const [otpMode,setOtpMode]=useState("phone_last4");
 
   // Error message
   const [error, setError] = useState<string | null>(null);
@@ -95,8 +98,8 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
   // Cleaned phone (sirf digits)
   const cleanedPhone = phone.replace(/\D/g, "");
   const otpCode = otp.join("");
-  const canSendOtp = cleanedPhone.length === 10;
-  const canVerifyOtp = otpCode.length === OTP_LENGTH;
+  const canSendOtp = /^[6-9]\d{9}$/.test(cleanedPhone);
+  const canVerifyOtp = otpCode.length === otp.length;
 
   // ── Resend timer countdown ─────────────────────────────────────────────
   useEffect(() => {
@@ -135,8 +138,9 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
       const payload = await res.json().catch(() => null);
       if (!res.ok) throw new Error(getApiErrorMessage(payload, "OTP send nahi ho paya."));
       setStep("otp");
-      setResendTimer(30);
-      setOtp([...EMPTY_OTP]);
+      setResendTimer(60);
+      setOtpMode(payload?.data?.otp_mode === "fast2sms" ? "fast2sms" : "phone_last4");
+      setOtp(emptyOtp(payload?.data?.otp_length === 6 ? 6 : 4));
       setTimeout(() => otpRefs.current[0]?.focus(), 80);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Server se connect nahi ho paya.");
@@ -201,7 +205,7 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
     setOtp(nextOtp);
     setError(null);
     // Next box pe focus karo
-    if (digit && index < OTP_LENGTH - 1) {
+    if (digit && index < otp.length - 1) {
       otpRefs.current[index + 1]?.focus();
     }
   }
@@ -216,24 +220,24 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
   // OTP paste handle karo — SMS se directly paste ho sake
   function handleOtpPaste(event: ClipboardEvent<HTMLDivElement>) {
     event.preventDefault();
-    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-    if (pasted.length !== OTP_LENGTH) return;
+    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, otp.length);
+    if (pasted.length !== otp.length) return;
     setOtp(pasted.split(""));
-    setTimeout(() => otpRefs.current[OTP_LENGTH - 1]?.focus(), 80);
+    setTimeout(() => otpRefs.current[otp.length - 1]?.focus(), 80);
   }
 
   // Phone step pe wapas jao
   function resetOtpFlow() {
     setStep("phone");
-    setOtp([...EMPTY_OTP]);
+    setOtp(emptyOtp(otp.length));
     setError(null);
   }
 
   return (
     <>
-      <style>{STYLES}</style>
 
-      <div className="auth-wrap">
+
+      <div className="auth-wrap auth-layout">
 
         {/* ── LEFT PANEL — Branding ───────────────────────────────────── */}
         <div className="brand-panel">
@@ -287,7 +291,7 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
                 </p>
 
                 {/* Error message */}
-                {error && <div className="error-box">{error}</div>}
+                {error && <div className="error-box" role="alert">{error}</div>}
 
                 {/* Phone input */}
                 <label className="field-label" htmlFor="phone-input">
@@ -297,6 +301,7 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
                   <span className="country-code">+91</span>
                   <input
                     id="phone-input"
+                    onKeyDown={e=>{if(e.key==="Enter"&&canSendOtp)void sendOtp();}}
                     className="phone-input"
                     type="tel"
                     inputMode="numeric"
@@ -308,7 +313,6 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
                       setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
                       setError(null);
                     }}
-                    onKeyDown={(e) => { if (e.key === "Enter") sendOtp(); }}
                   />
                 </div>
 
@@ -341,24 +345,22 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
               <>
                 <div className="auth-eyebrow">Verify</div>
                 <h2 className="auth-title">Enter OTP</h2>
-                <p className="auth-desc">
-                  Abhi SMS nahi — OTP = <strong>+91 {cleanedPhone}</strong> ke{" "}
-                  <strong>last 4 digits</strong> ({cleanedPhone.slice(-4)}).
-                  Paise aane ke baad live SMS OTP on hoga.
-                </p>
+                <p className="auth-desc">{otpMode==="phone_last4" ? <>Local demo: enter the last four digits of +91 {cleanedPhone}.</> : <>Enter the {otp.length}-digit verification code sent to +91 {cleanedPhone}.</>}</p>
 
                 {/* Error */}
-                {error && <div className="error-box">{error}</div>}
+                {error && <div className="error-box" role="alert">{error}</div>}
 
                 {/* 6-digit OTP boxes */}
                 <div
                   className="otp-grid"
+                  style={{gridTemplateColumns:`repeat(${otp.length}, minmax(0,1fr))`}}
                   onPaste={handleOtpPaste}
                   aria-label="OTP input"
                 >
                   {otp.map((digit, i) => (
                     <input
                       key={i}
+                      aria-label={`Verification code digit ${i+1}`}
                       ref={(el) => { otpRefs.current[i] = el; }}
                       className={`otp-box ${digit ? "otp-filled" : ""}`}
                       type="text"
@@ -403,7 +405,7 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
               <div className="loading-state">
                 <div className="auth-spinner" />
                 <p className="loading-text">
-                  {otpCode.length === OTP_LENGTH
+                  {otpCode.length === otp.length
                     ? "Verifying your account…"
                     : "Sending verification code…"}
                 </p>
@@ -421,218 +423,3 @@ export default function Login({ onSuccess, onOpenPrivacy, onOpenTerms }: Props) 
 // STYLES — Clean SaaS two-panel auth design
 // Left: dark branding, Right: white form card
 // ─────────────────────────────────────────────────────────────────────────────
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=JetBrains+Mono:wght@600;700&display=swap');
-
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;background:#f9fafb}
-button,input{font-family:inherit;outline:none;cursor:pointer;border:none}
-a{color:inherit;text-decoration:none}
-
-/* ── Auth Layout — 2 panels ─────────────────────────────────────────────── */
-.auth-wrap{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  min-height:100vh;
-}
-
-/* ── LEFT PANEL — Dark branding ─────────────────────────────────────────── */
-.brand-panel{
-  background:#0f172a;
-  color:#fff;
-  padding:48px;
-  display:flex;
-  flex-direction:column;
-  gap:0;
-  position:relative;
-  overflow:hidden;
-}
-.brand-panel::before{
-  content:'';position:absolute;
-  top:-120px;right:-80px;
-  width:400px;height:400px;border-radius:50%;
-  background:radial-gradient(circle,rgba(249,115,22,.12),transparent 70%);
-  pointer-events:none;
-}
-.brand-logo{
-  font-family:'JetBrains Mono',monospace;
-  font-size:22px;font-weight:700;color:#fff;
-  margin-bottom:auto;
-}
-.brand-logo span{color:#f97316}
-
-.brand-content{
-  padding:40px 0;
-  display:flex;flex-direction:column;gap:20px;
-}
-.brand-eyebrow{
-  font-size:11px;font-weight:700;letter-spacing:.12em;
-  text-transform:uppercase;color:#f97316;
-}
-.brand-headline{
-  font-size:clamp(28px,3.5vw,42px);
-  font-weight:800;line-height:1.1;letter-spacing:-.03em;
-  color:#fff;
-}
-.brand-desc{
-  font-size:15px;line-height:1.7;color:rgba(255,255,255,.55);
-  max-width:40ch;
-}
-
-/* Feature list */
-.feature-list{list-style:none;display:flex;flex-direction:column;gap:14px}
-.feature-item{
-  display:flex;align-items:center;gap:12px;
-  font-size:14px;color:rgba(255,255,255,.75);
-}
-.feature-icon{
-  width:36px;height:36px;border-radius:8px;
-  background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);
-  display:flex;align-items:center;justify-content:center;
-  color:#f97316;flex-shrink:0;
-}
-
-.brand-footer{
-  font-size:12px;color:rgba(255,255,255,.3);
-  margin-top:auto;padding-top:32px;
-}
-
-/* ── RIGHT PANEL — Auth Form ─────────────────────────────────────────────── */
-.form-panel{
-  background:#f9fafb;
-  display:flex;align-items:center;justify-content:center;
-  padding:32px 24px;
-}
-.auth-card{
-  background:#fff;border:1px solid #e5e7eb;
-  border-radius:16px;padding:36px 32px;
-  width:100%;max-width:420px;
-  display:flex;flex-direction:column;gap:16px;
-}
-.mobile-logo{
-  display:none;
-  font-family:'JetBrains Mono',monospace;
-  font-size:20px;font-weight:700;color:#111827;
-  margin-bottom:8px;
-}
-.mobile-logo span{color:#f97316}
-
-/* Card header text */
-.auth-eyebrow{
-  font-size:11px;font-weight:700;letter-spacing:.1em;
-  text-transform:uppercase;color:#9ca3af;
-}
-.auth-title{font-size:22px;font-weight:800;color:#111827;letter-spacing:-.02em}
-.auth-desc{font-size:14px;color:#6b7280;line-height:1.6}
-
-/* Error box */
-.error-box{
-  padding:11px 14px;border-radius:8px;
-  background:#fee2e2;border:1px solid #fca5a5;
-  color:#991b1b;font-size:13px;font-weight:500;
-}
-
-/* Phone input */
-.field-label{font-size:13px;font-weight:600;color:#374151}
-.phone-row{
-  display:flex;align-items:center;
-  border:1.5px solid #e5e7eb;border-radius:9px;
-  background:#fff;overflow:hidden;
-  transition:border-color .15s,box-shadow .15s;
-}
-.phone-row:focus-within{
-  border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.1);
-}
-.country-code{
-  padding:12px 14px;
-  font-size:14px;font-weight:700;color:#374151;
-  border-right:1.5px solid #e5e7eb;background:#f9fafb;
-  flex-shrink:0;
-}
-.phone-input{
-  flex:1;padding:12px 14px;border:none;
-  font-size:15px;font-weight:600;color:#111827;background:transparent;
-  letter-spacing:.04em;
-}
-.phone-input::placeholder{color:#9ca3af;font-weight:400;letter-spacing:0}
-
-/* Primary CTA button */
-.primary-btn{
-  width:100%;padding:13px 20px;border-radius:9px;
-  background:#f97316;color:#fff;
-  font-size:15px;font-weight:700;border:none;cursor:pointer;
-  box-shadow:0 1px 3px rgba(249,115,22,.3);
-  transition:all .15s;
-}
-.primary-btn:hover:not(:disabled){
-  background:#ea580c;
-  box-shadow:0 6px 20px rgba(249,115,22,.4);
-  transform:translateY(-1px);
-}
-.primary-btn:disabled{
-  opacity:.4;cursor:not-allowed;transform:none;
-}
-
-/* Terms */
-.auth-terms{font-size:12px;color:#9ca3af;line-height:1.6;text-align:center}
-.auth-link{color:#f97316;text-decoration:underline;background:none;border:none;padding:0;font:inherit;cursor:pointer}
-
-/* OTP Grid */
-.otp-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);
-  gap:10px;max-width:280px;margin:0 auto;width:100%;
-}
-.otp-box{
-  width:100%;min-width:0;aspect-ratio:1;border-radius:9px;
-  border:1.5px solid #e5e7eb;background:#f9fafb;
-  font-size:20px;font-weight:800;color:#111827;
-  text-align:center;transition:all .15s;
-  font-family:'JetBrains Mono',monospace;
-}
-.otp-box:focus{
-  border-color:#f97316;background:#fff;
-  box-shadow:0 0 0 3px rgba(249,115,22,.1);outline:none;
-}
-.otp-filled{background:#fff7f5;border-color:#fed7aa}
-
-/* Resend row */
-.resend-row{
-  display:flex;align-items:center;justify-content:center;
-  gap:10px;font-size:13px;
-}
-.resend-timer{color:#9ca3af;font-weight:500}
-.resend-btn{
-  background:none;border:none;padding:0;
-  font-size:13px;font-weight:600;color:#f97316;cursor:pointer;
-  transition:color .15s;
-}
-.resend-btn:hover{color:#ea580c}
-.dot-sep{color:#d1d5db}
-
-/* Loading state */
-.loading-state{
-  display:flex;flex-direction:column;align-items:center;
-  gap:14px;padding:20px 0;
-}
-.auth-spinner{
-  width:36px;height:36px;border-radius:50%;
-  border:3px solid #e5e7eb;border-top-color:#f97316;
-  animation:spin .7s linear infinite;
-}
-.loading-text{font-size:14px;color:#6b7280;text-align:center}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ── Responsive ──────────────────────────────────────────────────────────── */
-@media(max-width:768px){
-  .auth-wrap{grid-template-columns:1fr}
-  .brand-panel{display:none}
-  .form-panel{padding:24px 16px;min-height:100vh;background:#f9fafb}
-  .auth-card{box-shadow:none;border:none;padding:28px 20px}
-  .mobile-logo{display:block}
-}
-@media(max-width:400px){
-  .otp-grid{gap:6px}
-  .otp-box{font-size:18px}
-  .auth-card{padding:20px 16px}
-}
-`;

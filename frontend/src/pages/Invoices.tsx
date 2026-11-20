@@ -1,3 +1,4 @@
+import "./Invoices.css";
 // ─────────────────────────────────────────────────────────────────────────────
 // Invoices.tsx — KhataGST Invoice Register
 // Yahan user ke saare invoices dikhte hain — sales aur purchases dono
@@ -246,7 +247,7 @@ export default function Invoices({ navigate }: Props) {
 
     return (
       <>
-        <style>{STYLES}</style>
+
         <header className="topbar">
           <button className="back-btn" onClick={() => setSelected(null)}>
             ← Back
@@ -256,12 +257,12 @@ export default function Invoices({ navigate }: Props) {
         </header>
 
         <main className="page">
-          {actionMsg && <div className="action-banner">{actionMsg}</div>}
+          {actionMsg && <div className="action-banner" role="status">{actionMsg}</div>}
           <div className="detail-card">
             <div className="detail-head">
               <div>
                 <div className="detail-eyebrow">Invoice Number</div>
-                <div className="detail-num">{selected.invoice_number}</div>
+                <h1 className="detail-num">{selected.invoice_number}</h1>
               </div>
               <span className={`inv-badge ${
                 selected.gst_status === "matched" ? "badge-ok" :
@@ -323,7 +324,7 @@ export default function Invoices({ navigate }: Props) {
   // ── Main Invoice List View ──────────────────────────────────────────────
   return (
     <>
-      <style>{STYLES}</style>
+
 
       {/* ── Top Navigation ────────────────────────────────────────────── */}
       <header className="topbar">
@@ -337,6 +338,7 @@ export default function Invoices({ navigate }: Props) {
       </header>
 
       <main className="page">
+        <div className="workspace-title"><div><p className="workspace-kicker">RECORDS</p><h1>Invoice register</h1><p>Track sales, purchases and the details behind every transaction.</p></div></div>
         {actionMsg && <div className="action-banner">{actionMsg}</div>}
 
         {/* ── Summary Bar (sirf jab sab tab selected ho) ────────────────── */}
@@ -361,18 +363,20 @@ export default function Invoices({ navigate }: Props) {
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
             </svg>
             <input
+              aria-label="Search invoices"
               className="search-input"
               placeholder="Search by party, invoice no, or GSTIN…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             {search && (
-              <button className="search-clear" onClick={() => setSearch("")}>✕</button>
+              <button aria-label="Clear invoice search" className="search-clear" onClick={() => setSearch("")}>✕</button>
             )}
           </div>
 
           {/* Sort dropdown */}
           <select
+            aria-label="Sort invoices"
             className="sort-select"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
@@ -388,6 +392,7 @@ export default function Invoices({ navigate }: Props) {
           {(["all", "sale", "purchase"] as Tab[]).map((t) => (
             <button
               key={t}
+              aria-pressed={tab === t}
               className={`tab-btn ${tab === t ? "tab-active" : ""}`}
               onClick={() => setTab(t)}
             >
@@ -407,7 +412,7 @@ export default function Invoices({ navigate }: Props) {
           // API fail ho gayi
           <div className="center-state">
             <div className="error-box">{error}</div>
-            <button className="btn-pri" onClick={() => navigate("dashboard")}>Go to Dashboard</button>
+            <button className="btn-pri" onClick={() => void loadInvoices()}>Retry loading invoices</button>
           </div>
         ) : filtered.length === 0 ? (
           // Koi invoice nahi mila
@@ -423,6 +428,7 @@ export default function Invoices({ navigate }: Props) {
             <p className="empty-sub">
               {search ? "Try a different search term." : "Create a sales invoice or scan a purchase bill."}
             </p>
+            {search && <button className="btn-sec" onClick={()=>setSearch("")}>Clear search</button>}
             {!search && (
               <button className="btn-pri" onClick={() => setCreating(true)}>
                 Create Invoice
@@ -488,228 +494,3 @@ export default function Invoices({ navigate }: Props) {
 // ─────────────────────────────────────────────────────────────────────────────
 // STYLES — Clean consistent design, light background
 // ─────────────────────────────────────────────────────────────────────────────
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=JetBrains+Mono:wght@600;700&display=swap');
-
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#f9fafb;font-family:'Inter',sans-serif;color:#111827;-webkit-font-smoothing:antialiased}
-button{font-family:inherit;cursor:pointer;border:none;outline:none}
-input,select{font-family:inherit;outline:none}
-
-/* ── Top Navigation ─────────────────────────────────────────────────────── */
-.topbar{
-  position:sticky;top:0;z-index:100;
-  display:flex;align-items:center;gap:16px;
-  padding:0 20px;height:56px;
-  background:#fff;border-bottom:1px solid #e5e7eb;
-}
-.topbar-brand{
-  font-size:15px;font-weight:700;color:#111827;
-  font-family:'JetBrains Mono',monospace;flex:1;text-align:center;
-}
-.back-btn{
-  padding:7px 12px;border-radius:7px;
-  background:#f9fafb;border:1px solid #e5e7eb;
-  font-size:13px;font-weight:600;color:#374151;
-  transition:all .15s;
-}
-.back-btn:hover{background:#f3f4f6}
-.btn-pri{
-  padding:8px 16px;border-radius:7px;
-  background:#f97316;color:#fff;
-  font-size:13px;font-weight:600;
-  box-shadow:0 1px 3px rgba(249,115,22,.3);
-  transition:all .15s;
-}
-.btn-pri:hover{background:#ea580c}
-
-/* ── Main Page ─────────────────────────────────────────────────────────── */
-.page{
-  max-width:680px;margin:0 auto;
-  padding:20px 16px 100px;
-  display:flex;flex-direction:column;gap:14px;
-}
-
-/* ── Summary Bar ─────────────────────────────────────────────────────────── */
-.summary-bar{
-  display:flex;align-items:center;
-  padding:14px 16px;border-radius:10px;
-  background:#fff;border:1px solid #e5e7eb;
-}
-.sum-item{flex:1;display:flex;flex-direction:column;gap:3px}
-.sum-right{align-items:flex-end}
-.sum-label{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em}
-.sum-val{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#111827}
-.sum-green{color:#059669}
-.sum-divider{width:1px;background:#e5e7eb;align-self:stretch;margin:0 16px}
-
-/* ── Search Row ─────────────────────────────────────────────────────────── */
-.search-row{display:flex;gap:10px;align-items:center}
-.search-wrap{
-  flex:1;display:flex;align-items:center;gap:10px;
-  background:#fff;border:1.5px solid #e5e7eb;border-radius:9px;
-  padding:0 12px;transition:border-color .15s;
-}
-.search-wrap:focus-within{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.08)}
-.search-icon{color:#9ca3af;flex-shrink:0}
-.search-input{
-  flex:1;border:none;background:transparent;
-  padding:11px 0;font-size:14px;color:#111827;font-weight:500;
-}
-.search-input::placeholder{color:#9ca3af;font-weight:400}
-.search-clear{
-  background:none;border:none;color:#9ca3af;
-  font-size:14px;padding:4px;cursor:pointer;transition:color .15s;
-}
-.search-clear:hover{color:#374151}
-.sort-select{
-  padding:10px 12px;border-radius:9px;
-  border:1.5px solid #e5e7eb;background:#fff;
-  font-size:13px;font-weight:600;color:#374151;
-  cursor:pointer;transition:border-color .15s;white-space:nowrap;
-}
-.sort-select:focus{border-color:#f97316}
-
-/* ── Tabs ────────────────────────────────────────────────────────────────── */
-.tab-row{display:flex;gap:6px;padding:4px;border-radius:9px;background:#f3f4f6}
-.tab-btn{
-  flex:1;padding:8px 12px;border-radius:7px;
-  background:transparent;border:none;
-  font-size:13px;font-weight:600;color:#6b7280;
-  cursor:pointer;transition:all .15s;
-}
-.tab-active{background:#fff;color:#111827;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-
-/* ── Invoice List ────────────────────────────────────────────────────────── */
-.inv-list{display:flex;flex-direction:column;gap:6px}
-.inv-count{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
-
-.inv-card{
-  width:100%;display:flex;align-items:center;gap:12px;
-  padding:14px 16px;border-radius:10px;
-  background:#fff;border:1px solid #e5e7eb;
-  cursor:pointer;text-align:left;color:#111827;
-  transition:all .15s;
-}
-.inv-card:hover{border-color:#d1d5db;box-shadow:0 2px 8px rgba(0,0,0,.06);transform:translateY(-1px)}
-
-/* Type badge — S ya P */
-.type-badge{
-  width:32px;height:32px;border-radius:7px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight:800;flex-shrink:0;font-family:'JetBrains Mono',monospace;
-}
-.type-sale{background:#d1fae5;color:#065f46}
-.type-pur{background:#dbeafe;color:#1e40af}
-
-/* Invoice info */
-.inv-info{flex:1;min-width:0}
-.inv-top{display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap}
-.inv-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#374151}
-.inv-party{font-size:13px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* Right side */
-.inv-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
-.inv-amount{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:#111827}
-.amount-sale{color:#059669}
-.inv-date{font-size:11px;color:#9ca3af}
-
-/* Status Badges */
-.inv-badge{
-  display:inline-flex;align-items:center;
-  padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;
-}
-.badge-ok{background:#d1fae5;color:#065f46}
-.badge-warn{background:#fef3c7;color:#92400e}
-.badge-bad{background:#fee2e2;color:#991b1b}
-
-/* ── States ──────────────────────────────────────────────────────────────── */
-.center-state{
-  display:flex;flex-direction:column;align-items:center;
-  gap:12px;padding:60px 20px;text-align:center;color:#6b7280;
-  font-size:14px;
-}
-.load-spinner{
-  width:28px;height:28px;border-radius:50%;
-  border:3px solid #e5e7eb;border-top-color:#f97316;
-  animation:spin .7s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-.error-box{
-  padding:14px 18px;border-radius:9px;
-  background:#fee2e2;border:1px solid #fca5a5;
-  color:#991b1b;font-size:14px;font-weight:600;
-  max-width:400px;text-align:center;
-}
-.empty-state{
-  text-align:center;padding:40px 20px;
-  display:flex;flex-direction:column;align-items:center;gap:10px;
-}
-.empty-icon{
-  width:56px;height:56px;border-radius:12px;
-  background:#f3f4f6;display:flex;align-items:center;
-  justify-content:center;color:#9ca3af;margin-bottom:4px;
-}
-.empty-title{font-size:16px;font-weight:700;color:#111827}
-.empty-sub{font-size:14px;color:#6b7280}
-
-/* ── Invoice Detail View ─────────────────────────────────────────────────── */
-.detail-card{
-  background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-  padding:24px;display:flex;flex-direction:column;gap:0;
-}
-.detail-head{
-  display:flex;align-items:flex-start;justify-content:space-between;
-  gap:16px;margin-bottom:20px;
-}
-.detail-eyebrow{
-  font-size:11px;font-weight:700;letter-spacing:.08em;
-  text-transform:uppercase;color:#9ca3af;margin-bottom:5px;
-}
-.detail-num{
-  font-family:'JetBrains Mono',monospace;
-  font-size:20px;font-weight:700;color:#111827;
-}
-.detail-row{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:11px 0;border-bottom:1px solid #f3f4f6;
-}
-.detail-label{font-size:13px;color:#6b7280;font-weight:500}
-.detail-value{font-size:14px;font-weight:600;color:#111827}
-.mono-val{font-family:'JetBrains Mono',monospace}
-.detail-divider{height:1px;background:#e5e7eb;margin:8px 0}
-.detail-total{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:14px 0 0;margin-top:4px;
-}
-.detail-total span{font-size:15px;font-weight:700;color:#111827}
-.total-val{
-  font-family:'JetBrains Mono',monospace;
-  font-size:20px;font-weight:800;color:#f97316;
-}
-.detail-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
-.btn-sec{
-  padding:10px 14px;border-radius:8px;background:#fff;border:1px solid #d1d5db;
-  font-size:13px;font-weight:700;color:#374151;cursor:pointer;
-}
-.btn-danger{
-  padding:10px 14px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;
-  font-size:13px;font-weight:700;color:#991b1b;cursor:pointer;
-}
-.btn-sec:disabled,.btn-danger:disabled{opacity:.6;cursor:not-allowed}
-.action-banner{
-  padding:10px 14px;border-radius:8px;background:#ecfdf5;border:1px solid #a7f3d0;
-  color:#065f46;font-size:13px;font-weight:600;
-}
-
-/* ── Responsive ──────────────────────────────────────────────────────────── */
-@media(max-width:640px){
-  .page{padding:16px 12px 90px}
-  .topbar{padding:0 12px}
-  .search-row{flex-direction:column;align-items:stretch}
-  .sort-select{width:100%}
-  .summary-bar{flex-direction:column;gap:12px}
-  .sum-divider{width:100%;height:1px;margin:0}
-  .sum-right{align-items:flex-start}
-}
-`;

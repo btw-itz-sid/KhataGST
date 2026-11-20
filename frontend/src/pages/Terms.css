@@ -1,0 +1,16 @@
+/* Page layout, scoped to avoid cross-screen style collisions. */
+
+[data-screen="terms"] *{box-sizing:border-box;margin:0;padding:0}
+[data-screen="terms"]{background:#f8fafc;color:var(--ui-ink);font-family:var(--font-sans)}
+[data-screen="terms"] .top{position:sticky;top:0;display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;background:#fff;border-bottom:1px solid #e2e8f0}
+[data-screen="terms"] .brand{flex:1;text-align:center;font-family:var(--font-mono);font-weight:600}
+[data-screen="terms"] .brand span{color:var(--ui-ink)}
+[data-screen="terms"] .back{border:1px solid #e2e8f0;background:#f8fafc;border-radius:0;padding:7px 10px;font-weight:600;cursor:pointer}
+[data-screen="terms"] .page{max-width:720px;margin:0 auto;padding:28px 16px 80px}
+[data-screen="terms"] .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ui-ink);margin-bottom:8px}
+[data-screen="terms"] h1{font-size:28px;font-weight:600;margin-bottom:8px}
+[data-screen="terms"] .meta{font-size:14px;color:var(--ui-secondary);margin-bottom:24px}
+[data-screen="terms"] section{margin-bottom:20px}
+[data-screen="terms"] h2{font-size:16px;font-weight:600;margin-bottom:8px}
+[data-screen="terms"] p{font-size:14px;line-height:1.65;color:var(--ui-ink)}
+[data-screen="terms"] a{color:var(--ui-ink)}

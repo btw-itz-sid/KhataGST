@@ -88,7 +88,8 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
       }
 
       const data = await res.json();
-      setDashboardStats(data.data);
+      const d=data.data;
+      setDashboardStats({overview:{totalUsers:d.users?.total ?? 0,recentUsers:d.users?.recent_7d ?? 0,totalBusinesses:d.businesses?.total ?? 0,totalActiveBusinesses:d.businesses?.active ?? 0,recentBusinesses:d.businesses?.recent_7d ?? 0},returns:d.returns,scans:d.scans,usersByPlan:d.users?.by_plan ?? {}});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kuch galat ho gaya");
     } finally {
@@ -101,7 +102,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${BASE_URL}/admin/users?limit=${limit}&offset=${offset}`, {
+      const res = await fetch(`${BASE_URL}/admin/users?limit=${limit}&page=${Math.floor(offset/limit)+1}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -110,11 +111,11 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
       }
 
       const data = await res.json();
-      setUsers(data.data.users);
+      setUsers(Array.isArray(data.data) ? data.data : []);
       setPagination({
-        limit: data.data.pagination.limit,
-        offset: data.data.pagination.offset,
-        total: data.data.pagination.total,
+        limit: data.pagination.limit,
+        offset: (data.pagination.page - 1) * data.pagination.limit,
+        total: data.pagination.total,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kuch galat ho gaya");
@@ -128,7 +129,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${BASE_URL}/admin/businesses?limit=${limit}&offset=${offset}`, {
+      const res = await fetch(`${BASE_URL}/admin/businesses?limit=${limit}&page=${Math.floor(offset/limit)+1}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -137,11 +138,11 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
       }
 
       const data = await res.json();
-      setBusinesses(data.data.businesses);
+      setBusinesses(Array.isArray(data.data) ? data.data : []);
       setPagination({
-        limit: data.data.pagination.limit,
-        offset: data.data.pagination.offset,
-        total: data.data.pagination.total,
+        limit: data.pagination.limit,
+        offset: (data.pagination.page - 1) * data.pagination.limit,
+        total: data.pagination.total,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kuch galat ho gaya");
@@ -156,7 +157,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
       setLoading(true);
       setError(null);
       const statusParam = status ? `&status=${status}` : "";
-      const res = await fetch(`${BASE_URL}/admin/returns?limit=${limit}&offset=${offset}${statusParam}`, {
+      const res = await fetch(`${BASE_URL}/admin/returns?limit=${limit}&page=${Math.floor(offset/limit)+1}${statusParam}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -165,11 +166,11 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
       }
 
       const data = await res.json();
-      setReturns(data.data.returns);
+      setReturns(Array.isArray(data.data) ? data.data : []);
       setPagination({
-        limit: data.data.pagination.limit,
-        offset: data.data.pagination.offset,
-        total: data.data.pagination.total,
+        limit: data.pagination.limit,
+        offset: (data.pagination.page - 1) * data.pagination.limit,
+        total: data.pagination.total,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kuch galat ho gaya");
@@ -192,13 +193,13 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
   }, [activeTab]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-6">
+    <div className="utility-page min-h-screen bg-zinc-50 text-zinc-900 p-6">
       {/* Header with back button */}
       <div className="max-w-7xl mx-auto mb-8 flex items-center gap-4">
         {navigate && (
           <button
             onClick={() => navigate("dashboard")}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex-shrink-0"
+            className="p-2 rounded-none bg-white hover:bg-zinc-100 border border-zinc-200 transition-colors flex-shrink-0"
             aria-label="Back to dashboard"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -208,28 +209,28 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
           </button>
         )}
         <div>
-          <h1 className="text-4xl font-bold mb-1">Admin Dashboard</h1>
-          <p className="text-slate-400">Platform ka poora overview dekho</p>
+          <h1 className="text-3xl font-semibold mb-1">Admin Dashboard</h1>
+          <p className="text-zinc-500">Platform ka poora overview dekho</p>
         </div>
       </div>
 
       {/* Error message */}
       {error && (
-        <div className="max-w-7xl mx-auto mb-4 p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-300">
+        <div className="max-w-7xl mx-auto mb-4 p-4 bg-zinc-50 border border-red-200 rounded-none text-red-700">
           {error}
         </div>
       )}
 
       {/* Tab navigation */}
-      <div className="max-w-7xl mx-auto mb-6 flex gap-2 border-b border-slate-700">
+      <div className="max-w-7xl mx-auto mb-6 flex gap-2 border-b border-zinc-200">
         {["dashboard", "users", "businesses", "returns"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
             className={`px-4 py-3 font-medium capitalize transition-all ${
               activeTab === tab
-                ? "border-b-2 border-blue-500 text-blue-400"
-                : "text-slate-400 hover:text-slate-300"
+                ? "border-b-2 border-zinc-900 text-zinc-700"
+                : "text-zinc-500 hover:text-zinc-700"
             }`}
           >
             {tab}
@@ -241,8 +242,8 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
       <div className="max-w-7xl mx-auto">
         {loading ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <p className="mt-4 text-slate-400">Load ho raha hai...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900"></div>
+            <p className="mt-4 text-zinc-500">Load ho raha hai...</p>
           </div>
         ) : activeTab === "dashboard" ? (
           // Dashboard tab
@@ -251,47 +252,47 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
               <>
                 {/* Overview cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
-                    <p className="text-slate-400 text-sm">Total Users</p>
-                    <p className="text-3xl font-bold mt-2">{dashboardStats.overview.totalUsers}</p>
-                    <p className="text-xs text-green-400 mt-2">
+                  <div className="bg-white border border-zinc-200 rounded-none p-4 ">
+                    <p className="text-zinc-500 text-sm">Total Users</p>
+                    <p className="text-3xl font-semibold mt-2">{dashboardStats.overview.totalUsers}</p>
+                    <p className="text-xs text-zinc-700 mt-2">
                       +{dashboardStats.overview.recentUsers} last 7 days
                     </p>
                   </div>
 
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
-                    <p className="text-slate-400 text-sm">Total Businesses</p>
-                    <p className="text-3xl font-bold mt-2">{dashboardStats.overview.totalBusinesses}</p>
-                    <p className="text-xs text-blue-400 mt-2">
+                  <div className="bg-white border border-zinc-200 rounded-none p-4 ">
+                    <p className="text-zinc-500 text-sm">Total Businesses</p>
+                    <p className="text-3xl font-semibold mt-2">{dashboardStats.overview.totalBusinesses}</p>
+                    <p className="text-xs text-zinc-700 mt-2">
                       {dashboardStats.overview.totalActiveBusinesses} active
                     </p>
                   </div>
 
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
-                    <p className="text-slate-400 text-sm">Returns Filed</p>
-                    <p className="text-3xl font-bold mt-2">{dashboardStats.returns.filed}</p>
-                    <p className="text-xs text-amber-400 mt-2">
+                  <div className="bg-white border border-zinc-200 rounded-none p-4 ">
+                    <p className="text-zinc-500 text-sm">Returns Filed</p>
+                    <p className="text-3xl font-semibold mt-2">{dashboardStats.returns.filed}</p>
+                    <p className="text-xs text-zinc-700 mt-2">
                       {dashboardStats.returns.pending} pending
                     </p>
                   </div>
 
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
-                    <p className="text-slate-400 text-sm">Scans Processed</p>
-                    <p className="text-3xl font-bold mt-2">{dashboardStats.scans.total}</p>
-                    <p className="text-xs text-green-400 mt-2">
+                  <div className="bg-white border border-zinc-200 rounded-none p-4 ">
+                    <p className="text-zinc-500 text-sm">Scans Processed</p>
+                    <p className="text-3xl font-semibold mt-2">{dashboardStats.scans.total}</p>
+                    <p className="text-xs text-zinc-700 mt-2">
                       {dashboardStats.scans.successful} successful, {dashboardStats.scans.failed} failed
                     </p>
                   </div>
                 </div>
 
                 {/* Users by plan */}
-                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 backdrop-blur-sm">
+                <div className="bg-white border border-zinc-200 rounded-none p-6 ">
                   <h3 className="text-lg font-semibold mb-4">Users by Plan</h3>
                   <div className="space-y-3">
                     {Object.entries(dashboardStats.usersByPlan).map(([plan, count]) => (
                       <div key={plan} className="flex justify-between items-center">
-                        <span className="capitalize text-slate-300">{plan}</span>
-                        <span className="font-semibold bg-slate-700/50 px-3 py-1 rounded text-sm">
+                        <span className="capitalize text-zinc-700">{plan}</span>
+                        <span className="font-semibold bg-zinc-100 px-3 py-1 rounded-none text-sm">
                           {count}
                         </span>
                       </div>
@@ -307,7 +308,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700 text-slate-400">
+                  <tr className="border-b border-zinc-200 text-zinc-500">
                     <th className="text-left py-3 px-4">Phone</th>
                     <th className="text-left py-3 px-4">Name</th>
                     <th className="text-left py-3 px-4">Email</th>
@@ -317,16 +318,16 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} className="border-b border-slate-700/50 hover:bg-slate-700/20">
-                      <td className="py-3 px-4 font-mono text-blue-400">{user.phone}</td>
+                    <tr key={user.id} className="border-b border-zinc-200 hover:bg-zinc-50">
+                      <td className="py-3 px-4 font-mono text-zinc-700">{user.phone}</td>
                       <td className="py-3 px-4">{user.name || "-"}</td>
-                      <td className="py-3 px-4 text-slate-400">{user.email || "-"}</td>
+                      <td className="py-3 px-4 text-zinc-500">{user.email || "-"}</td>
                       <td className="py-3 px-4">
-                        <span className="bg-slate-700 px-2 py-1 rounded text-xs capitalize">
+                        <span className="bg-zinc-100 px-2 py-1 rounded-none text-xs capitalize">
                           {user.plan}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-400">
+                      <td className="py-3 px-4 text-zinc-500">
                         {new Date(user.created_at).toLocaleDateString("en-IN")}
                       </td>
                     </tr>
@@ -336,7 +337,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
             </div>
             {/* Pagination */}
             <div className="flex justify-between items-center mt-4">
-              <span className="text-slate-400 text-sm">
+              <span className="text-zinc-500 text-sm">
                 {pagination.offset + 1} - {Math.min(pagination.offset + pagination.limit, pagination.total)} of{" "}
                 {pagination.total}
               </span>
@@ -348,7 +349,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                     }
                   }}
                   disabled={pagination.offset === 0}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 rounded"
                 >
                   Previous
                 </button>
@@ -359,7 +360,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                     }
                   }}
                   disabled={pagination.offset + pagination.limit >= pagination.total}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 rounded"
                 >
                   Next
                 </button>
@@ -372,7 +373,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700 text-slate-400">
+                  <tr className="border-b border-zinc-200 text-zinc-500">
                     <th className="text-left py-3 px-4">GSTIN</th>
                     <th className="text-left py-3 px-4">Business Name</th>
                     <th className="text-left py-3 px-4">Owner</th>
@@ -384,24 +385,24 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                 </thead>
                 <tbody>
                   {businesses.map((biz) => (
-                    <tr key={biz.id} className="border-b border-slate-700/50 hover:bg-slate-700/20">
-                      <td className="py-3 px-4 font-mono text-blue-400">{biz.gstin}</td>
+                    <tr key={biz.id} className="border-b border-zinc-200 hover:bg-zinc-50">
+                      <td className="py-3 px-4 font-mono text-zinc-700">{biz.gstin}</td>
                       <td className="py-3 px-4 font-semibold">{biz.legal_name}</td>
-                      <td className="py-3 px-4 text-slate-400">{biz.owner_name}</td>
+                      <td className="py-3 px-4 text-zinc-500">{biz.owner_name}</td>
                       <td className="py-3 px-4 capitalize text-xs">{biz.plan}</td>
                       <td className="py-3 px-4">{biz.state_code}</td>
                       <td className="py-3 px-4">
                         <span
                           className={`text-xs px-2 py-1 rounded ${
                             biz.is_active
-                              ? "bg-green-900/30 text-green-400"
-                              : "bg-red-900/30 text-red-400"
+                              ? "bg-zinc-50 text-zinc-700"
+                              : "bg-zinc-50 text-red-700"
                           }`}
                         >
                           {biz.is_active ? "Active" : "Inactive"}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-400">
+                      <td className="py-3 px-4 text-zinc-500">
                         {new Date(biz.created_at).toLocaleDateString("en-IN")}
                       </td>
                     </tr>
@@ -411,7 +412,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
             </div>
             {/* Pagination */}
             <div className="flex justify-between items-center mt-4">
-              <span className="text-slate-400 text-sm">
+              <span className="text-zinc-500 text-sm">
                 {pagination.offset + 1} - {Math.min(pagination.offset + pagination.limit, pagination.total)} of{" "}
                 {pagination.total}
               </span>
@@ -423,7 +424,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                     }
                   }}
                   disabled={pagination.offset === 0}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 rounded"
                 >
                   Previous
                 </button>
@@ -434,7 +435,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                     }
                   }}
                   disabled={pagination.offset + pagination.limit >= pagination.total}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 rounded"
                 >
                   Next
                 </button>
@@ -447,7 +448,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700 text-slate-400">
+                  <tr className="border-b border-zinc-200 text-zinc-500">
                     <th className="text-left py-3 px-4">Return Type</th>
                     <th className="text-left py-3 px-4">Tax Period</th>
                     <th className="text-left py-3 px-4">Business</th>
@@ -459,28 +460,28 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                 </thead>
                 <tbody>
                   {returns.map((ret) => (
-                    <tr key={ret.id} className="border-b border-slate-700/50 hover:bg-slate-700/20">
+                    <tr key={ret.id} className="border-b border-zinc-200 hover:bg-zinc-50">
                       <td className="py-3 px-4 font-semibold">{ret.return_type}</td>
                       <td className="py-3 px-4">{ret.tax_period}</td>
                       <td className="py-3 px-4">{ret.business_name}</td>
-                      <td className="py-3 px-4 text-slate-400">{ret.owner_name}</td>
+                      <td className="py-3 px-4 text-zinc-500">{ret.owner_name}</td>
                       <td className="py-3 px-4">
                         <span
                           className={`text-xs px-2 py-1 rounded capitalize ${
                             ret.status === "filed"
-                              ? "bg-green-900/30 text-green-400"
+                              ? "bg-zinc-50 text-zinc-700"
                               : ret.status === "draft"
                               ? "bg-yellow-900/30 text-yellow-400"
                               : ret.status === "computed"
-                              ? "bg-blue-900/30 text-blue-400"
-                              : "bg-red-900/30 text-red-400"
+                              ? "bg-blue-900/30 text-zinc-700"
+                              : "bg-zinc-50 text-red-700"
                           }`}
                         >
                           {ret.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-mono text-blue-400">{ret.arn || "-"}</td>
-                      <td className="py-3 px-4 text-slate-400">
+                      <td className="py-3 px-4 font-mono text-zinc-700">{ret.arn || "-"}</td>
+                      <td className="py-3 px-4 text-zinc-500">
                         {ret.filed_at ? new Date(ret.filed_at).toLocaleDateString("en-IN") : "-"}
                       </td>
                     </tr>
@@ -490,7 +491,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
             </div>
             {/* Pagination */}
             <div className="flex justify-between items-center mt-4">
-              <span className="text-slate-400 text-sm">
+              <span className="text-zinc-500 text-sm">
                 {pagination.offset + 1} - {Math.min(pagination.offset + pagination.limit, pagination.total)} of{" "}
                 {pagination.total}
               </span>
@@ -502,7 +503,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                     }
                   }}
                   disabled={pagination.offset === 0}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 rounded"
                 >
                   Previous
                 </button>
@@ -513,7 +514,7 @@ export default function Admin({ navigate }: { navigate?: (route: any) => void })
                     }
                   }}
                   disabled={pagination.offset + pagination.limit >= pagination.total}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 rounded"
                 >
                   Next
                 </button>

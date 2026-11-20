@@ -1,3 +1,4 @@
+import "./Profile.css";
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile.tsx — Business Settings & Account Page
 // User apna business info dekh sakta hai, edit kar sakta hai
@@ -10,7 +11,7 @@ import { apiFetch, getApiErrorMessage } from "../lib/api";
 import { clearSession, getBusinessContext, getToken } from "../lib/session";
 
 // Route type
-type Route = "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing";
+type Route = "gst-rates" | "login" | "dashboard" | "scan" | "invoices" | "export" | "profile" | "pricing";
 
 // Tab options — 3 sections
 type TabId = "business" | "preferences" | "danger";
@@ -62,11 +63,12 @@ export default function Profile({ navigate, onLogout }: Props) {
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Notification preferences (local state — future mein API se save hoga)
-  const [notifs, setNotifs] = useState<NotifPrefs>({
-    emailAlerts: true,
-    smsAlerts: false,
-    monthlyReports: true,
+  const preferenceKey="khatagst_preferences:"+(getBusinessContext()?.id || "personal");
+  const [notifs, setNotifs] = useState<NotifPrefs>(()=>{
+    try {const value=JSON.parse(localStorage.getItem(preferenceKey)||"{}");return {emailAlerts:value.emailAlerts===true,smsAlerts:value.smsAlerts===true,monthlyReports:value.monthlyReports===true};}
+    catch{return {emailAlerts:false,smsAlerts:false,monthlyReports:false};}
   });
+  useEffect(()=>{try{localStorage.setItem(preferenceKey,JSON.stringify(notifs));}catch{/* Storage may be unavailable in private browsing. */}},[notifs,preferenceKey]);
   const [deleting, setDeleting] = useState(false);
 
   // Session se business context
@@ -196,7 +198,7 @@ export default function Profile({ navigate, onLogout }: Props) {
 
   return (
     <>
-      <style>{STYLES}</style>
+
 
       {/* ── Top Navigation ─────────────────────────────────────────────── */}
       <header className="topbar">
@@ -348,6 +350,7 @@ export default function Profile({ navigate, onLogout }: Props) {
                 <div className="card" style={{ marginTop: 14 }}>
                   <h2 className="card-title" style={{ marginBottom: 14 }}>Quick Actions</h2>
                   <div className="actions-row">
+                    <button className="action-tile" onClick={()=>navigate("gst-rates")}><strong>GST reference rates</strong><span>Browse HSN / SAC codes</span></button>
                     <button className="action-tile" onClick={() => navigate("export")}>
                       <div className="tile-icon tile-blue">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -401,6 +404,7 @@ export default function Profile({ navigate, onLogout }: Props) {
                     KhataGST kab aur kaise alert bheje — yahan control karo.
                   </p>
 
+                  <p className="local-preferences-note">Saved on this device. Notification delivery and automatic reports are not enabled by these preferences.</p>
                   <div className="toggle-list">
                     <ToggleRow
                       label="Email Alerts"
@@ -416,7 +420,7 @@ export default function Profile({ navigate, onLogout }: Props) {
                     />
                     <ToggleRow
                       label="Monthly Reports"
-                      desc="Har mahine ke 1 tarik ko automated CSV export milega."
+                      desc="Preference for future monthly report delivery."
                       checked={notifs.monthlyReports}
                       onChange={() => setNotifs({ ...notifs, monthlyReports: !notifs.monthlyReports })}
                     />
@@ -428,7 +432,7 @@ export default function Profile({ navigate, onLogout }: Props) {
                   <div className="pref-grid">
                     <label className="pref-field">
                       <span>Filing Frequency</span>
-                      <select className="pref-select" defaultValue="monthly">
+                      <select className="pref-select" disabled defaultValue="monthly" title="Filing frequency is a reference setting; workflow configuration is not available yet">
                         <option value="monthly">Monthly (Regular)</option>
                         <option value="qrmp">Quarterly (QRMP)</option>
                       </select>
@@ -571,7 +575,7 @@ function ToggleRow({
         <span>{desc}</span>
       </div>
       <label className="switch">
-        <input type="checkbox" checked={checked} onChange={onChange} />
+        <input aria-label={label} type="checkbox" checked={checked} onChange={onChange} />
         <span className="slider" />
       </label>
     </div>
@@ -581,233 +585,3 @@ function ToggleRow({
 // ─────────────────────────────────────────────────────────────────────────────
 // STYLES — Same design system as other pages
 // ─────────────────────────────────────────────────────────────────────────────
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=JetBrains+Mono:wght@600;700&display=swap');
-
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#f9fafb;font-family:'Inter',sans-serif;color:#111827;-webkit-font-smoothing:antialiased}
-button,input,select{font-family:inherit;outline:none}
-
-/* ── Top Nav ──────────────────────────────────────────────────────────────── */
-.topbar{
-  position:sticky;top:0;z-index:100;
-  display:flex;align-items:center;gap:16px;
-  padding:0 20px;height:56px;
-  background:#fff;border-bottom:1px solid #e5e7eb;
-}
-.topbar-brand{
-  font-family:'JetBrains Mono',monospace;
-  font-size:15px;font-weight:700;color:#111827;flex:1;text-align:center;
-}
-.back-btn{
-  padding:7px 12px;border-radius:7px;
-  background:#f9fafb;border:1px solid #e5e7eb;
-  font-size:13px;font-weight:600;color:#374151;
-  cursor:pointer;transition:all .15s;
-}
-.back-btn:hover{background:#f3f4f6}
-
-/* ── Page ────────────────────────────────────────────────────────────────── */
-.page{
-  max-width:680px;margin:0 auto;
-  padding:24px 16px 100px;
-  display:flex;flex-direction:column;gap:14px;
-}
-
-/* ── Profile Hero ─────────────────────────────────────────────────────────── */
-.profile-hero{
-  display:flex;align-items:center;gap:14px;
-  padding:20px;border-radius:10px;
-  background:#fff;border:1px solid #e5e7eb;
-}
-.avatar{
-  width:48px;height:48px;border-radius:10px;flex-shrink:0;
-  background:linear-gradient(135deg,#f97316,#ea580c);
-  color:#fff;font-size:20px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;
-  font-family:'JetBrains Mono',monospace;
-}
-.profile-info{flex:1;min-width:0}
-.profile-name{
-  font-size:16px;font-weight:700;color:#111827;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.gstin-pill{
-  display:inline-flex;align-items:center;margin-top:4px;
-  padding:3px 9px;border-radius:5px;
-  background:#f3f4f6;border:1px solid #e5e7eb;
-  font-family:'JetBrains Mono',monospace;font-size:11px;
-  font-weight:700;color:#6b7280;letter-spacing:.04em;
-}
-.logout-btn{
-  display:flex;align-items:center;gap:6px;
-  padding:8px 14px;border-radius:7px;
-  background:#fee2e2;border:1px solid #fca5a5;
-  color:#dc2626;font-size:13px;font-weight:600;cursor:pointer;
-  transition:all .15s;flex-shrink:0;
-}
-.logout-btn:hover{background:#fecaca}
-
-/* ── Tabs ──────────────────────────────────────────────────────────────────── */
-.tab-bar{
-  display:flex;gap:6px;padding:4px;
-  border-radius:9px;background:#f3f4f6;
-}
-.tab-btn{
-  flex:1;padding:9px 12px;border-radius:7px;
-  background:transparent;border:none;cursor:pointer;
-  font-size:13px;font-weight:600;color:#6b7280;
-  transition:all .15s;
-}
-.tab-btn:hover{color:#374151}
-.tab-active{background:#fff;color:#111827;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-
-/* ── Tab Panel ─────────────────────────────────────────────────────────────── */
-.tab-panel{animation:fadeIn .3s ease both}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-
-/* ── Card ──────────────────────────────────────────────────────────────────── */
-.card{
-  background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px;
-}
-.card-header{
-  display:flex;align-items:flex-start;justify-content:space-between;
-  gap:16px;margin-bottom:18px;flex-wrap:wrap;
-}
-.card-title{font-size:16px;font-weight:700;color:#111827}
-.card-sub{font-size:13px;color:#6b7280;margin-top:3px}
-
-/* Status messages */
-.msg-banner{
-  padding:11px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:12px;
-}
-.msg-ok{background:#d1fae5;border:1px solid #86efac;color:#065f46}
-.msg-err{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
-
-/* Button group */
-.btn-group{display:flex;gap:8px}
-.btn-ghost{
-  padding:8px 14px;border-radius:7px;
-  background:#f9fafb;border:1px solid #e5e7eb;
-  font-size:13px;font-weight:600;color:#374151;cursor:pointer;
-  transition:all .15s;
-}
-.btn-ghost:hover{background:#f3f4f6}
-.btn-ghost:disabled{opacity:.5;cursor:not-allowed}
-.btn-primary{
-  padding:8px 14px;border-radius:7px;
-  background:#f97316;color:#fff;border:none;
-  font-size:13px;font-weight:600;cursor:pointer;
-  box-shadow:0 1px 3px rgba(249,115,22,.3);
-  transition:all .15s;
-}
-.btn-primary:hover:not(:disabled){background:#ea580c}
-.btn-primary:disabled{opacity:.5;cursor:not-allowed}
-
-/* ── Detail Grid ────────────────────────────────────────────────────────────── */
-.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.detail-item{
-  display:flex;flex-direction:column;gap:5px;
-  padding:14px;border-radius:8px;
-  background:#f9fafb;border:1px solid #f3f4f6;
-}
-.detail-full{grid-column:1/-1}
-.detail-label{
-  font-size:11px;font-weight:700;letter-spacing:.08em;
-  text-transform:uppercase;color:#9ca3af;
-}
-.detail-value{font-size:14px;font-weight:600;color:#111827}
-.mono-val{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.04em}
-
-/* ── Preferences ─────────────────────────────────────────────────────────── */
-.pref-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.pref-field{display:flex;flex-direction:column;gap:7px}
-.pref-field span{font-size:12px;font-weight:600;color:#6b7280}
-.pref-select{
-  padding:10px 12px;border-radius:8px;
-  border:1.5px solid #e5e7eb;background:#fff;
-  font-size:14px;color:#111827;
-  transition:border-color .15s;
-}
-.pref-select:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.1)}
-
-/* ── Toggles ────────────────────────────────────────────────────────────── */
-.toggle-list{display:flex;flex-direction:column;gap:10px}
-.toggle-row{
-  display:flex;align-items:center;justify-content:space-between;gap:20px;
-  padding:16px;border-radius:8px;background:#f9fafb;border:1px solid #f3f4f6;
-}
-.toggle-text strong{display:block;font-size:14px;font-weight:600;color:#111827;margin-bottom:2px}
-.toggle-text span{font-size:13px;color:#6b7280}
-.switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
-.switch input{opacity:0;width:0;height:0}
-.slider{
-  position:absolute;cursor:pointer;inset:0;
-  background:#d1d5db;border-radius:34px;transition:.3s;
-}
-.slider:before{
-  content:'';position:absolute;height:18px;width:18px;
-  left:3px;bottom:3px;background:#fff;border-radius:50%;
-  transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.15);
-}
-input:checked + .slider{background:#10b981}
-input:checked + .slider:before{transform:translateX(20px)}
-
-/* ── Actions ─────────────────────────────────────────────────────────────── */
-.actions-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.action-tile{
-  display:flex;flex-direction:column;align-items:center;gap:8px;
-  padding:16px;border-radius:9px;background:#f9fafb;
-  border:1px solid #e5e7eb;cursor:pointer;
-  text-align:center;transition:all .15s;
-}
-.action-tile:hover{background:#f3f4f6;border-color:#d1d5db;transform:translateY(-1px)}
-.action-tile strong{font-size:13px;font-weight:700;color:#111827}
-.action-tile span{font-size:12px;color:#6b7280}
-.tile-icon{
-  width:40px;height:40px;border-radius:9px;
-  display:flex;align-items:center;justify-content:center;
-}
-.tile-blue{background:#dbeafe;color:#1d4ed8}
-.tile-green{background:#d1fae5;color:#065f46}
-.tile-orange{background:#ffedd5;color:#ea580c}
-
-/* ── Danger Zone ─────────────────────────────────────────────────────────── */
-.danger-list{display:flex;flex-direction:column;gap:12px}
-.danger-row{
-  display:flex;align-items:center;justify-content:space-between;gap:20px;
-  padding:16px;border-radius:8px;background:#f9fafb;border:1px solid #f3f4f6;
-}
-.danger-row strong{display:block;font-size:14px;font-weight:600;color:#111827;margin-bottom:3px}
-.danger-row p{font-size:13px;color:#6b7280}
-.btn-danger{
-  padding:9px 16px;border-radius:7px;
-  background:#fee2e2;border:1px solid #fca5a5;
-  color:#dc2626;font-size:13px;font-weight:600;cursor:pointer;
-  transition:all .15s;flex-shrink:0;
-}
-.btn-danger:hover{background:#fecaca}
-
-/* ── States ──────────────────────────────────────────────────────────────── */
-.center-state{
-  display:flex;flex-direction:column;align-items:center;
-  gap:12px;padding:60px 20px;text-align:center;color:#6b7280;font-size:14px;
-}
-.spinner{
-  width:28px;height:28px;border-radius:50%;
-  border:3px solid #e5e7eb;border-top-color:#f97316;
-  animation:spin .7s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ── Responsive ──────────────────────────────────────────────────────────── */
-@media(max-width:640px){
-  .page{padding:16px 12px 90px}
-  .detail-grid,.pref-grid{grid-template-columns:1fr}
-  .detail-full,.pref-field{grid-column:1}
-  .actions-row{grid-template-columns:1fr}
-  .danger-row{flex-direction:column;align-items:flex-start}
-  .profile-hero{flex-wrap:wrap}
-  .logout-btn{order:1;width:100%;justify-content:center}
-}
-`;

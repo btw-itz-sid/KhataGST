@@ -1,3 +1,4 @@
+import "./Reconcile.css";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch, getApiErrorMessage } from "../lib/api";
 import { getBusinessContext } from "../lib/session";
@@ -209,7 +210,7 @@ export default function Reconcile({ navigate }: Props) {
 
   return (
     <>
-      <style>{STYLES}</style>
+
       <header className="topbar">
         <button className="back-btn" onClick={() => navigate("dashboard")}>← Dashboard</button>
         <div className="topbar-brand">2B Reconcile</div>
@@ -255,6 +256,7 @@ export default function Reconcile({ navigate }: Props) {
             GST portal → Returns → GSTR-2B → Download JSON. Ya demo sample paste karo.
           </p>
           <textarea
+            aria-label="GSTR-2B JSON contents"
             className="json-box"
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
@@ -387,68 +389,3 @@ export default function Reconcile({ navigate }: Props) {
     </>
   );
 }
-
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#f8fafc;font-family:Inter,sans-serif;color:#0f172a}
-button,input,select,textarea{font-family:inherit}
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;background:#fff;border-bottom:1px solid #e2e8f0}
-.topbar-brand{flex:1;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700}
-.back-btn{padding:7px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:600;cursor:pointer}
-.page{max-width:920px;margin:0 auto;padding:24px 16px 96px;display:flex;flex-direction:column;gap:14px}
-.page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px}
-.page-title{font-size:24px;font-weight:800;margin-bottom:6px}
-.page-desc{font-size:14px;color:#64748b;line-height:1.55}
-.banner{padding:12px 14px;border-radius:10px;font-size:14px;font-weight:600}
-.banner-ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
-.banner-err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
-.card-title{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b}
-.card-copy{font-size:13px;color:#64748b;line-height:1.5}
-.period-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:#64748b}
-.field select,.json-box{width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;background:#fff}
-.json-box{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.45;resize:vertical}
-.period-chip{display:inline-flex;align-self:flex-start;padding:8px 12px;border-radius:999px;background:#0f172a;color:#fff;font-size:12px;font-weight:700}
-.btn-row{display:flex;flex-wrap:wrap;gap:8px}
-.btn-pri,.btn-sec{padding:10px 14px;border-radius:9px;font-size:13px;font-weight:700;border:none;cursor:pointer}
-.btn-pri{background:#ea580c;color:#fff}
-.btn-sec{background:#fff;border:1px solid #cbd5e1;color:#334155}
-.btn-pri:disabled,.btn-sec:disabled,.btn-tiny:disabled{opacity:.55;cursor:not-allowed}
-.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.kpi{text-align:left;padding:14px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;flex-direction:column;gap:4px}
-.kpi span{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase}
-.kpi strong{font-family:'JetBrains Mono',monospace;font-size:20px}
-.kpi em{font-style:normal;font-size:12px;color:#64748b}
-.kpi-on{border-color:#fb923c;box-shadow:0 0 0 2px rgba(251,146,60,.2)}
-.kpi-warn strong{color:#b45309}
-.kpi-bad strong{color:#b91c1c}
-.kpi-risk{background:#0f172a;color:#fff;border-color:#0f172a;cursor:default}
-.kpi-risk span,.kpi-risk em{color:#94a3b8}
-.kpi-risk strong{color:#fdba74}
-.matrix{display:flex;flex-direction:column;gap:8px}
-.row{display:flex;justify-content:space-between;gap:12px;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc}
-.bucket-matched{border-color:#a7f3d0;background:#ecfdf5}
-.bucket-mismatch{border-color:#fcd34d;background:#fffbeb}
-.bucket-in_books_not_2b{border-color:#fecaca;background:#fef2f2}
-.bucket-in_2b_not_books{border-color:#bfdbfe;background:#eff6ff}
-.row-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.badge{font-size:10px;font-weight:800;text-transform:uppercase;padding:3px 7px;border-radius:999px;background:#e2e8f0;color:#334155}
-.ims-accept{background:#d1fae5;color:#065f46}
-.ims-reject{background:#fee2e2;color:#991b1b}
-.ims-pending{background:#e2e8f0;color:#475569}
-.mono{font-family:'JetBrains Mono',monospace;font-size:12px;color:#64748b}
-.note{font-size:12px;color:#475569;margin-top:4px;line-height:1.4}
-.amounts{display:grid;grid-template-columns:1fr;gap:6px;min-width:120px}
-.amounts span{display:block;font-size:10px;color:#94a3b8;font-weight:700}
-.amounts strong{font-family:'JetBrains Mono',monospace;font-size:12px}
-.ims-actions{display:flex;flex-direction:column;gap:6px}
-.btn-tiny{padding:7px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-size:12px;font-weight:700;cursor:pointer}
-.btn-tiny.ok{background:#059669;border-color:#059669;color:#fff}
-.btn-tiny.bad{background:#dc2626;border-color:#dc2626;color:#fff}
-@media(max-width:720px){
-  .kpi-grid,.period-grid{grid-template-columns:1fr 1fr}
-  .row{flex-direction:column}
-}
-`;

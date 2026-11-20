@@ -1,0 +1,652 @@
+/* Page-specific layout; shared visual tokens live in styles/theme.css. */
+
+  [data-screen="onboarding"] * { box-sizing: border-box; }
+
+  [data-screen="onboarding"] {
+    --ob-bg: var(--ui-ink);
+    --ob-brand: var(--ui-ink);
+    --ob-brand-light: var(--ui-ink);
+    --ob-brand-glow: rgba(24,24,27,0.35);
+    --ob-text: #f1f5f9;
+    --ob-text-dark: var(--ui-ink);
+    --ob-muted: var(--ui-ink);
+    --ob-soft: var(--ui-secondary);
+    --ob-card-bg: rgba(255, 255, 255, 0.97);
+    --ob-card-border: rgba(226, 232, 240, 0.6);
+    --ob-success: var(--ui-secondary);
+    --ob-danger: var(--ui-ink);
+  }
+
+  [data-screen="onboarding"] {
+    margin: 0;
+    background: var(--ob-bg);
+    color: var(--ob-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Shell ─────────────────────────────────────── */
+  [data-screen="onboarding"] .ob-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+  }
+
+  /* ── Showcase (left) ───────────────────────────── */
+  [data-screen="onboarding"] .ob-showcase {
+    position: relative;
+    overflow: hidden;
+    padding: 48px;
+    background:
+      var(--ui-canvas);
+  }
+
+  [data-screen="onboarding"] .ob-orb {
+    position: absolute;
+    border-radius: 0;
+    filter: none;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  [data-screen="onboarding"] .ob-orb-1 {
+    width: 420px; height: 420px;
+    top: -120px; right: -80px;
+    background: var(--ui-canvas);
+    animation: ob-float1 12s ease-in-out infinite;
+  }
+  [data-screen="onboarding"] .ob-orb-2 {
+    width: 320px; height: 320px;
+    bottom: -80px; left: -90px;
+    background: var(--ui-canvas);
+    animation: ob-float2 15s ease-in-out infinite;
+  }
+  [data-screen="onboarding"] .ob-orb-3 {
+    width: 200px; height: 200px;
+    top: 45%; left: 50%;
+    background: var(--ui-canvas);
+    animation: ob-float3 10s ease-in-out infinite;
+  }
+
+  @keyframes ob-float1 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(-30px,40px) scale(1.1); }
+    66% { transform: translate(20px,-20px) scale(0.95); }
+  }
+  @keyframes ob-float2 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(40px,-30px) scale(1.05); }
+    66% { transform: translate(-20px,40px) scale(0.9); }
+  }
+  @keyframes ob-float3 {
+    0%, 100% { transform: translate(0,0) scale(1); opacity: 0.3; }
+    50% { transform: translate(-40px,30px) scale(1.2); opacity: 0.5; }
+  }
+
+  [data-screen="onboarding"] .ob-mesh {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  }
+
+  [data-screen="onboarding"] .ob-showcase-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    gap: 24px;
+  }
+
+  [data-screen="onboarding"] .ob-brand, [data-screen="onboarding"] .ob-mobile-brand {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  [data-screen="onboarding"] .ob-brand span, [data-screen="onboarding"] .ob-mobile-brand span {
+    background: var(--ui-canvas);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  [data-screen="onboarding"] .ob-kicker {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+
+  [data-screen="onboarding"] .ob-showcase-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  [data-screen="onboarding"] .ob-showcase-inner h1 {
+    margin: 14px 0 0;
+    font-size: clamp(38px, 5vw, 60px);
+    line-height: 0.98;
+    font-weight: 600;
+    letter-spacing: -0.05em;
+    background: var(--ui-canvas);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  [data-screen="onboarding"] .ob-showcase-copy {
+    max-width: 48ch;
+    margin: 24px 0 0;
+    font-size: 15px;
+    line-height: 1.8;
+    color: rgba(255,255,255,0.55);
+  }
+
+  [data-screen="onboarding"] .ob-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  [data-screen="onboarding"] .ob-feature-card {
+    padding: 18px 16px;
+    border-radius: 0;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: none;
+    transition: transform 0.3s, border-color 0.3s, background 0.3s;
+  }
+  [data-screen="onboarding"] .ob-feature-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(24,24,27,0.25);
+    background: rgba(255,255,255,0.07);
+  }
+  [data-screen="onboarding"] .ob-feature-icon { font-size: 20px; margin-bottom: 10px; }
+  [data-screen="onboarding"] .ob-feature-card span {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+  }
+  [data-screen="onboarding"] .ob-feature-card strong {
+    font-size: 15px;
+    line-height: 1.3;
+    color: #fff;
+  }
+
+  [data-screen="onboarding"] .ob-showcase-note {
+    max-width: 42ch;
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── Right panel ───────────────────────────────── */
+  [data-screen="onboarding"] .ob-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 28px;
+    background:
+      var(--ui-canvas);
+    overflow-y: auto;
+  }
+
+  [data-screen="onboarding"] .ob-card {
+    width: 100%;
+    max-width: 460px;
+    padding: 36px 32px;
+    border-radius: 0;
+    border: 1px solid var(--ob-card-border);
+    background: var(--ob-card-bg);
+    box-shadow:
+      none;
+  }
+
+  [data-screen="onboarding"] .ob-mobile-brand {
+    display: none;
+    margin-bottom: 24px;
+    color: var(--ob-text-dark);
+  }
+
+  /* ── Progress bar ──────────────────────────────── */
+  [data-screen="onboarding"] .ob-progress {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  [data-screen="onboarding"] .ob-progress-seg {
+    height: 5px;
+    border-radius: 0;
+    background: #e2e8f0;
+    transition: background 0.4s ease, box-shadow 0.4s ease;
+  }
+  [data-screen="onboarding"] .ob-progress-seg.active {
+    background: var(--ui-canvas);
+  }
+  [data-screen="onboarding"] .ob-progress-seg.current {
+    box-shadow: none;
+  }
+
+  /* ── Step tag ──────────────────────────────────── */
+  [data-screen="onboarding"] .ob-step-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ob-brand);
+    background: rgba(24,24,27,0.08);
+    margin-bottom: 12px;
+  }
+
+  [data-screen="onboarding"] .ob-title {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    color: var(--ob-text-dark);
+    line-height: 1.1;
+  }
+
+  [data-screen="onboarding"] .ob-desc {
+    margin: 0 0 22px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ob-soft);
+  }
+
+  /* ── Error ─────────────────────────────────────── */
+  [data-screen="onboarding"] .ob-error {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border-radius: 0;
+    border: 1px solid rgba(24,24,27,0.25);
+    background: rgba(24,24,27,0.06);
+    color: var(--ob-danger);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  /* ── Input fields ──────────────────────────────── */
+  [data-screen="onboarding"] .ob-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ob-soft);
+    letter-spacing: 0.02em;
+  }
+
+  [data-screen="onboarding"] .ob-field-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    margin-bottom: 18px;
+    border-radius: 0;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  [data-screen="onboarding"] .ob-field-wrap:focus-within {
+    border-color: var(--ob-brand);
+    box-shadow: none;
+  }
+
+  [data-screen="onboarding"] .ob-field-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    width: 32px;
+    text-align: center;
+  }
+
+  [data-screen="onboarding"] .ob-input, [data-screen="onboarding"] .ob-select {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--ob-text-dark);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    padding: 10px 0;
+  }
+  [data-screen="onboarding"] .ob-input::placeholder {
+    color: var(--ui-muted);
+    font-weight: 400;
+  }
+  [data-screen="onboarding"] .ob-select {
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* ── Registration type cards ───────────────────── */
+  [data-screen="onboarding"] .ob-reg-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  [data-screen="onboarding"] .ob-reg-card {
+    position: relative;
+    padding: 16px 12px 14px;
+    border-radius: 0;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  [data-screen="onboarding"] .ob-reg-card:hover {
+    border-color: var(--ob-brand);
+    transform: none;
+    box-shadow: none;
+  }
+  [data-screen="onboarding"] .ob-reg-card.active {
+    border-color: var(--ob-brand);
+    background: rgba(24,24,27,0.05);
+    box-shadow: none;
+  }
+  [data-screen="onboarding"] .ob-reg-icon { font-size: 22px; margin-bottom: 8px; }
+  [data-screen="onboarding"] .ob-reg-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ob-text-dark);
+    margin-bottom: 4px;
+  }
+  [data-screen="onboarding"] .ob-reg-desc {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ob-soft);
+  }
+  [data-screen="onboarding"] .ob-reg-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 0;
+    background: var(--ob-brand);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+    animation: ob-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes ob-pop {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── State chip ────────────────────────────────── */
+  [data-screen="onboarding"] .ob-state-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    margin: -8px 0 16px;
+    border-radius: 0;
+    background: rgba(24,24,27,0.06);
+    border: 1px solid rgba(24,24,27,0.15);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ob-brand);
+  }
+  [data-screen="onboarding"] .ob-chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 0;
+    background: var(--ob-brand);
+    animation: ob-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes ob-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  [data-screen="onboarding"] .ob-helper {
+    margin: -8px 0 18px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ob-soft);
+  }
+
+  /* ── Buttons ───────────────────────────────────── */
+  [data-screen="onboarding"] .ob-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  [data-screen="onboarding"] .ob-cta {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin-top: 10px;
+    padding: 16px 20px;
+    border: none;
+    border-radius: 0;
+    background: var(--ui-canvas);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow:
+      none;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  [data-screen="onboarding"] .ob-cta:hover:not(:disabled) {
+    transform: none;
+    box-shadow:
+      none;
+  }
+  [data-screen="onboarding"] .ob-cta:active:not(:disabled) { transform: translateY(0); }
+  [data-screen="onboarding"] .ob-cta:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  [data-screen="onboarding"] .ob-cta-text { position: relative; z-index: 1; }
+  [data-screen="onboarding"] .ob-cta-arrow {
+    position: relative;
+    z-index: 1;
+    font-size: 17px;
+    transition: transform 0.2s;
+  }
+  [data-screen="onboarding"] .ob-cta:hover:not(:disabled) .ob-cta-arrow { transform: translateX(3px); }
+
+  [data-screen="onboarding"] .ob-cta-shimmer {
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: var(--ui-canvas);
+    pointer-events: none;
+  }
+  [data-screen="onboarding"] .ob-cta:hover:not(:disabled) .ob-cta-shimmer {
+    animation: ob-shimmer 0.8s ease forwards;
+  }
+  @keyframes ob-shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+
+  [data-screen="onboarding"] .ob-btn-back {
+    flex-shrink: 0;
+    padding: 16px 22px;
+    border: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: #fff;
+    color: var(--ob-soft);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  [data-screen="onboarding"] .ob-btn-back:hover {
+    border-color: var(--ob-brand);
+    color: var(--ob-brand);
+    transform: none;
+  }
+
+  /* ── Success state ─────────────────────────────── */
+  [data-screen="onboarding"] .ob-success {
+    text-align: center;
+    padding: 20px 0 10px;
+  }
+
+  [data-screen="onboarding"] .ob-success-ring {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+  }
+
+  [data-screen="onboarding"] .ob-checkmark-svg {
+    width: 80px;
+    height: 80px;
+  }
+
+  [data-screen="onboarding"] .ob-check-circle {
+    stroke: var(--ob-success);
+    stroke-width: 2;
+    stroke-dasharray: 150.79;
+    stroke-dashoffset: 150.79;
+    animation: ob-circle-draw 0.6s ease-out 0.2s forwards;
+  }
+
+  [data-screen="onboarding"] .ob-check-path {
+    stroke: var(--ob-success);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: ob-check-draw 0.4s ease-out 0.7s forwards;
+  }
+
+  @keyframes ob-circle-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes ob-check-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  [data-screen="onboarding"] .ob-success-biz {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ob-text-dark);
+    letter-spacing: -0.02em;
+  }
+
+  [data-screen="onboarding"] .ob-success-note {
+    margin: 0 0 24px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ob-soft);
+  }
+
+  /* ── Footer ────────────────────────────────────── */
+  [data-screen="onboarding"] .ob-footer {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--ob-muted);
+  }
+
+  /* ── Animations ────────────────────────────────── */
+  [data-screen="onboarding"] .anim-fade {
+    opacity: 0;
+    animation: ob-anim-fade 0.7s ease forwards;
+  }
+  @keyframes ob-anim-fade {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  [data-screen="onboarding"] .anim-slide {
+    opacity: 0;
+    animation: ob-anim-slide 0.5s ease forwards;
+  }
+  @keyframes ob-anim-slide {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  [data-screen="onboarding"] .anim-scale {
+    animation: ob-anim-scale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes ob-anim-scale {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  [data-screen="onboarding"] .shake {
+    animation: ob-shake 0.4s ease;
+  }
+  @keyframes ob-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  /* ── Responsive ────────────────────────────────── */
+  @media (max-width: 900px) {
+    [data-screen="onboarding"] .ob-shell {
+      grid-template-columns: 1fr;
+    }
+    [data-screen="onboarding"] .ob-showcase { display: none; }
+    [data-screen="onboarding"] .ob-mobile-brand { display: block; }
+    [data-screen="onboarding"] .ob-panel {
+      min-height: 100vh;
+      padding: 24px 16px;
+      align-items: flex-start;
+      padding-top: 48px;
+    }
+    [data-screen="onboarding"] .ob-card {
+      max-width: 100%;
+      border-radius: 0;
+      padding: 28px 20px;
+    }
+    [data-screen="onboarding"] .ob-reg-grid {
+      grid-template-columns: 1fr;
+    }
+    [data-screen="onboarding"] .ob-actions {
+      flex-direction: column;
+    }
+  }

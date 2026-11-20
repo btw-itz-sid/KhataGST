@@ -7,6 +7,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Admin from "./pages/Admin";
+import "./styles/Navigation.css";
 import Dashboard from "./pages/Dashboard";
 import Returns from "./pages/Returns";
 import Reconcile from "./pages/Reconcile";
@@ -85,6 +86,25 @@ async function fetchPrimaryBusiness(
 // BottomNav — Fixed bottom navigation bar
 // Sirf authenticated pages pe dikhta hai (login aur onboarding pe nahi)
 // ─────────────────────────────────────────────────────────────────────────────
+function SideNav({active,navigate}:{active:Route;navigate:(route:Route)=>void}) {
+  const groups: {label:string;items:{route:Route;label:string;path:string}[]}[] = [
+    {label:"WORKSPACE",items:[
+      {route:"dashboard",label:"Overview",path:"M3 10 12 3l9 7M5 9v12h14V9M9 21v-7h6v7"},
+      {route:"invoices",label:"Invoices",path:"M7 3h8l4 4v14H5V3h2M14 3v5h5M8 12h8M8 16h8"},
+      {route:"scan",label:"Scan a bill",path:"M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M8 12h8M12 8v8"},
+      {route:"reconcile",label:"Reconciliation",path:"M4 7h15l-4-4M20 17H5l4 4M20 7v4M4 17v-4"},
+      {route:"export",label:"Returns & exports",path:"M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"},
+      {route:"ai-ca",label:"AI assistant",path:"m12 3 2 6 6 3-6 2-2 7-2-7-6-2 6-3 2-6Z"}
+    ]},
+    {label:"MANAGE",items:[
+      {route:"gst-rates",label:"GST rates",path:"M4 4h16v16H4V4M4 10h16M10 4v16M15 14h2M15 17h2"},
+      {route:"pricing",label:"Plans & billing",path:"M3 5h18v14H3V5M3 10h18M7 15h3"},
+      {route:"profile",label:"Settings",path:"M12 3v3m0 12v3M3 12h3m12 0h3M6 6l2 2m8 8 2 2M6 18l2-2m8-8 2-2M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0"}
+    ]}
+  ];
+  return <aside className="workspace-sidebar" aria-label="Workspace navigation"><div className="workspace-logo">Khata<span>GST</span></div><nav>{groups.map(group=><div key={group.label}><p className="workspace-label">{group.label}</p><div className="workspace-links">{group.items.map(item=><button key={item.route} onClick={()=>navigate(item.route)} aria-current={active===item.route ? "page" : undefined}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={item.path}/></svg>{item.label}</button>)}</div></div>)}</nav><div className="workspace-sidebar-footer"><button onClick={()=>navigate("profile")}>Business settings</button><p>Clear books. Confident decisions.</p></div></aside>;
+}
+
 export function BottomNav({
   active,
   navigate,
@@ -166,7 +186,7 @@ export function BottomNav({
 
   return (
     <>
-      <style>{NAV_STYLES}</style>
+
       {/* Fixed bottom navigation */}
       <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
         {items.map((item) => {
@@ -202,6 +222,14 @@ export function BottomNav({
 export default function App() {
   // Current route — default login
   const [route, setRoute] = useState<Route>("login");
+
+  useEffect(() => {
+    const labels: Partial<Record<Route,string>> = {dashboard:"Overview",invoices:"Invoices",scan:"Scan a bill","ai-ca":"AI assistant",export:"Returns",profile:"Settings",reconcile:"Reconciliation",pricing:"Plans","gst-rates":"GST rates",admin:"Administration",login:"Sign in",onboarding:"Business setup",privacy:"Privacy",terms:"Terms"};
+    document.title = (labels[route] || "Workspace") + " | KhataGST";
+    window.scrollTo({top:0,behavior:"instant"});
+    const focus = requestAnimationFrame(() => { const heading=document.querySelector<HTMLElement>("#main-content h1, #main-content h2"); if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});} });
+    return () => cancelAnimationFrame(focus);
+  },[route]);
 
   // App ready hai? (session check complete ho gaya?)
   const [ready, setReady] = useState(false);
@@ -342,13 +370,13 @@ export default function App() {
           fontWeight: 700,
           color: "#111827",
         }}>
-          Khata<span style={{ color: "#f97316" }}>GST</span>
+          Khata<span style={{ color: "#71717a" }}>GST</span>
         </div>
         <div style={{
           width: 28, height: 28,
           borderRadius: "50%",
           border: "3px solid #e5e7eb",
-          borderTopColor: "#f97316",
+          borderTopColor: "#18181b",
           animation: "spin .7s linear infinite",
         }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -360,15 +388,15 @@ export default function App() {
   const showNav =
     route !== "login" &&
     route !== "onboarding" &&
-    route !== "admin" &&
-    route !== "gst-rates" &&
-    route !== "pricing" &&
     route !== "privacy" &&
     route !== "terms";
 
   return (
     // Bottom nav ke liye neeche padding do
-    <div style={{ paddingBottom: showNav ? "80px" : "0" }}>
+    <div className={`app-shell ${showNav ? "has-navigation" : ""}`} data-screen={route}>
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      {showNav && <SideNav active={route} navigate={navigate} />}
+      <div id="main-content" tabIndex={-1}>
 
       {/* ── Login Page ─────────────────────────────────────────────── */}
       {route === "login" && (
@@ -384,11 +412,13 @@ export default function App() {
 
       {/* ── Onboarding — pehli baar business setup ─────────────────── */}
       {route === "onboarding" && (
+        <>
         <Onboarding
           token={getToken()}
           onComplete={handleOnboardingComplete}
           onRequireLogin={handleLogout}
         />
+        </>
       )}
 
       {/* ── Dashboard — main page ──────────────────────────────────── */}
@@ -442,6 +472,7 @@ export default function App() {
       )}
 
       {/* ── Bottom Navigation — sirf authenticated screens pe ──────── */}
+      </div>
       {showNav && (
         <BottomNav active={route} navigate={navigate} />
       )}
@@ -454,116 +485,3 @@ export default function App() {
 // NAV_STYLES — Bottom navigation ki styling
 // Clean white bar with orange active states — no glassmorphism
 // ─────────────────────────────────────────────────────────────────────────────
-const NAV_STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700&family=JetBrains+Mono:wght@700&display=swap');
-
-/* ── Bottom Nav Container ────────────────────────────────────────────────── */
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 200;
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  padding: 8px 8px 8px;
-  background: #ffffff;
-  border-top: 1px solid #e5e7eb;
-  /* Safe area for iPhone notch */
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
-}
-
-/* ── Individual Nav Button ───────────────────────────────────────────────── */
-.nav-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  transition: background 0.15s, color 0.15s, transform 0.15s;
-  color: #9ca3af;
-  min-height: 52px;
-}
-
-.nav-btn:hover:not(.nav-active) {
-  background: #f9fafb;
-  color: #6b7280;
-}
-
-/* ── Active State ────────────────────────────────────────────────────────── */
-.nav-active {
-  color: #f97316 !important;
-}
-
-.nav-active .nav-icon {
-  background: #fff7ed;
-  color: #f97316;
-}
-
-/* ── Nav Icon Container ──────────────────────────────────────────────────── */
-.nav-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  transition: background 0.15s;
-}
-
-/* ── Scan Button — center mein specially styled ──────────────────────────── */
-.nav-scan-icon {
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: #f97316;
-  color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
-  transition: all 0.15s;
-  margin-bottom: 2px;
-}
-
-/* Scan button ka label bhi orange dikhao */
-.nav-scan-btn {
-  color: #f97316;
-}
-
-.nav-btn:hover .nav-scan-icon {
-  background: #ea580c;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
-}
-
-/* ── Nav Label Text ──────────────────────────────────────────────────────── */
-.nav-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1;
-}
-
-/* ── Desktop — nav ko center mein rakho ─────────────────────────────────── */
-@media (min-width: 640px) {
-  .bottom-nav {
-    max-width: 640px;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: 12px;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    padding: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  }
-}
-`;
