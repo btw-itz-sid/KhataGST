@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState } from "react";
+import "./Dashboard.css";
 import { getBusinessContext, getToken } from "../lib/session";
 
 // Route type — app ke andar navigate karne ke liye
@@ -121,8 +122,8 @@ function getDeadlineTone(dateStr: string): { tone: string; label: string; urgent
 }
 
 // ── GST Health Score calculate karo ────────────────────────────────────────
-// Returns: score (0-100), label, color
-function calcHealthScore(data: DashboardData): { score: number; label: string; color: string } {
+// Returns: score (0-100) and label
+function calcHealthScore(data: DashboardData): { score: number; label: string } {
   let score = 100;
   const days1 = daysUntil(data.gstr1DueDate);
   const days3b = daysUntil(data.gstr3bDueDate);
@@ -144,9 +145,9 @@ function calcHealthScore(data: DashboardData): { score: number; label: string; c
   // 0-100 ke beech rakho
   score = Math.max(0, Math.min(100, score));
 
-  if (score >= 80) return { score, label: "Compliant", color: "#10b981" };
-  if (score >= 60) return { score, label: "Review Needed", color: "#f59e0b" };
-  return { score, label: "At Risk", color: "#ef4444" };
+  if (score >= 80) return { score, label: "Compliant" };
+  if (score >= 60) return { score, label: "Review Needed" };
+  return { score, label: "At Risk" };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -160,6 +161,15 @@ interface ComplianceNudge {
   action?: string;
 }
 
+function MetricIcon({ kind }: { kind: "credit" | "blocked" | "tax" | "purchases" }) {
+  const paths = {
+    credit: "M4 5h16v14H4z M4 9h16 M8 14h3 M15 14h2",
+    blocked: "M12 8v5 M12 16h.01 M10.3 3.9 2.4 18a1.3 1.3 0 0 0 1.1 2h17a1.3 1.3 0 0 0 1.1-2L13.7 3.9a2 2 0 0 0-3.4 0Z",
+    tax: "M7 4h10 M7 8h10 M9 4c5 0 5 7 0 7H7l8 9",
+    purchases: "M5 7h14l1 13H4L5 7Z M8 7V5a4 4 0 0 1 8 0v2",
+  };
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={paths[kind]} /></svg>;
+}
 export default function Dashboard({ navigate, onLogout }: Props) {
   // State: data load ho raha hai ya nahi
   const [data, setData] = useState<DashboardData | null>(null);
@@ -284,28 +294,28 @@ export default function Dashboard({ navigate, onLogout }: Props) {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <>
-        <style>{STYLES}</style>
+      <div className="dashboard">
+
         <div className="load-screen">
           <div className="load-logo">Khata<span>GST</span></div>
           <div className="load-spinner" />
           <span className="load-text">Loading your workspace…</span>
         </div>
-      </>
+      </div>
     );
   }
 
   // ── Error state — session issue ya API down ────────────────────────────────
   if (error && !data) {
     return (
-      <>
-        <style>{STYLES}</style>
+      <div className="dashboard">
+
         <div className="load-screen">
           <div className="load-logo">Khata<span>GST</span></div>
           <p className="err-msg">{error}</p>
           <button className="btn-pri" onClick={onLogout}>Return to Login</button>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -316,8 +326,8 @@ export default function Dashboard({ navigate, onLogout }: Props) {
   const g3b = getDeadlineTone(d.gstr3bDueDate);
 
   return (
-    <>
-      <style>{STYLES}</style>
+    <div className="dashboard">
+
 
       {/* ── Top Navigation Bar ──────────────────────────────────────────── */}
       <header className="topbar">
@@ -359,10 +369,10 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           <div className="hero-right">
             <div className="health-card">
               <div className="health-label">ITC this month</div>
-              <div className="health-score" style={{ color: "#059669" }}>
+              <div className="health-score">
                 {formatRupees(d.itcAvailable)}
               </div>
-              <div className="health-badge" style={{ color: health.color }}>
+              <div className="health-badge">
                 {health.label} · {health.score}
               </div>
               <div className="health-checks">
@@ -379,12 +389,44 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           </div>
         </section>
 
+        <section className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-icon" aria-hidden="true"><MetricIcon kind="credit" /></div>
+            <div className="stat-label">ITC Claimable</div>
+            <div className="stat-value">{formatRupees(d.itcAvailable)}</div>
+            <div className="stat-sub">Eligible purchases only</div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon" aria-hidden="true"><MetricIcon kind="blocked" /></div>
+            <div className="stat-label">ITC Blocked</div>
+            <div className="stat-value">{formatRupees(d.itcBlocked)}</div>
+            <div className="stat-sub">Excluded under Section 17(5)</div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon" aria-hidden="true"><MetricIcon kind="tax" /></div>
+            <div className="stat-label">Net GST Payable</div>
+            <div className="stat-value">
+              {d.taxPayable > 0 ? formatRupees(d.taxPayable) : "Nil"}
+            </div>
+            <div className="stat-sub">After eligible ITC</div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon" aria-hidden="true"><MetricIcon kind="purchases" /></div>
+            <div className="stat-label">Purchases</div>
+            <div className="stat-value">{formatRupees(d.totalPurchases)}</div>
+            <div className="stat-sub">Sales {formatRupees(d.totalSales)}</div>
+          </div>
+        </section>
+
         {nudges.length > 0 && (
           <section className="nudge-panel">
             <div className="nudge-head">
               <div>
-                <div className="nudge-kicker">Notice prevention</div>
-                <h2 className="nudge-title">Fix before you claim ITC{nudgePeriod ? ` · ${nudgePeriod}` : ""}</h2>
+                <div className="nudge-kicker">Needs attention</div>
+                <h2 className="nudge-title">Purchase review{nudgePeriod ? ` · ${nudgePeriod}` : ""}</h2>
               </div>
               <button className="nudge-link" onClick={() => navigate("reconcile")}>Open 2B</button>
             </div>
@@ -399,6 +441,7 @@ export default function Dashboard({ navigate, onLogout }: Props) {
                     else if (nudge.action === "invoices") navigate("invoices");
                   }}
                 >
+                  <span className="nudge-severity">{nudge.severity === "critical" ? "Action required" : nudge.severity === "warn" ? "Review" : "Information"}</span>
                   <strong>{nudge.title}</strong>
                   <span>{nudge.detail}</span>
                 </button>
@@ -406,38 +449,6 @@ export default function Dashboard({ navigate, onLogout }: Props) {
             </div>
           </section>
         )}
-
-        <section className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-icon stat-icon-green">↑</div>
-            <div className="stat-label">ITC Claimable</div>
-            <div className="stat-value stat-green">{formatRupees(d.itcAvailable)}</div>
-            <div className="stat-sub">Eligible purchases only</div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon stat-icon-amber">!</div>
-            <div className="stat-label">ITC Blocked</div>
-            <div className="stat-value stat-amber">{formatRupees(d.itcBlocked)}</div>
-            <div className="stat-sub">Section 17(5) — mat claim karo</div>
-          </div>
-
-          <div className="stat-card">
-            <div className={`stat-icon ${d.taxPayable > 0 ? "stat-icon-amber" : "stat-icon-green"}`}>₹</div>
-            <div className="stat-label">Net GST Payable</div>
-            <div className={`stat-value ${d.taxPayable > 0 ? "stat-amber" : "stat-green"}`}>
-              {d.taxPayable > 0 ? formatRupees(d.taxPayable) : "Nil"}
-            </div>
-            <div className="stat-sub">After eligible ITC</div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon stat-icon-blue">↓</div>
-            <div className="stat-label">Purchases</div>
-            <div className="stat-value stat-blue">{formatRupees(d.totalPurchases)}</div>
-            <div className="stat-sub">Sales {formatRupees(d.totalSales)}</div>
-          </div>
-        </section>
 
         {/* ── Deadline Cards + Quick Actions ───────────────────────────── */}
         <section className="mid-grid">
@@ -458,7 +469,7 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           {/* GSTR-3B Deadline */}
           <div className={`deadline-card ${g3b.urgent ? "deadline-urgent" : ""}`}>
             <div className="deadline-code">GSTR-3B</div>
-            <div className="deadline-name">Tax Payment</div>
+            <div className="deadline-name">Tax summary</div>
             <div className="deadline-date">{formatDate(d.gstr3bDueDate)}</div>
             <span className={`deadline-pill ${g3b.tone}`}>{g3b.label}</span>
             <p className="deadline-desc">
@@ -473,7 +484,7 @@ export default function Dashboard({ navigate, onLogout }: Props) {
           <div className="actions-panel">
             <div className="panel-title">Quick Actions</div>
             <button className="action-row" onClick={() => navigate("scan")}>
-              <div className="action-icon action-orange">
+              <div className="action-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7"/><path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7"/>
                   <path d="M20 17v1.5a1.5 1.5 0 0 1-1.5 1.5H17"/><path d="M7 20H5.5A1.5 1.5 0 0 1 4 18.5V17"/>
@@ -487,7 +498,7 @@ export default function Dashboard({ navigate, onLogout }: Props) {
               <span className="action-arrow">›</span>
             </button>
             <button className="action-row" onClick={() => navigate("invoices")}>
-              <div className="action-icon action-blue">
+              <div className="action-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/>
                   <path d="M14 3.5V8h4"/><path d="M9 12h6"/><path d="M9 16h6"/>
@@ -500,7 +511,7 @@ export default function Dashboard({ navigate, onLogout }: Props) {
               <span className="action-arrow">›</span>
             </button>
             <button className="action-row" onClick={() => navigate("export")}>
-              <div className="action-icon action-green">
+              <div className="action-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 4v10"/><path d="m8.5 10.5 3.5 3.5 3.5-3.5"/>
                   <path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5"/>
@@ -513,7 +524,7 @@ export default function Dashboard({ navigate, onLogout }: Props) {
               <span className="action-arrow">›</span>
             </button>
             <button className="action-row" onClick={() => navigate("reconcile")}>
-              <div className="action-icon action-amber">
+              <div className="action-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h7"/>
                   <path d="m14 15 2 2 4-4"/>
@@ -521,7 +532,7 @@ export default function Dashboard({ navigate, onLogout }: Props) {
               </div>
               <div className="action-text">
                 <strong>2B Reconcile</strong>
-                <span>Stop notice risk before you claim ITC</span>
+                <span>Compare purchases with GSTR-2B</span>
               </div>
               <span className="action-arrow">›</span>
             </button>
@@ -591,315 +602,6 @@ export default function Dashboard({ navigate, onLogout }: Props) {
         </section>
 
       </main>
-    </>
+    </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STYLES — Clean SaaS design, no glassmorphism overdose
-// Light background, subtle shadows, orange brand color
-// ─────────────────────────────────────────────────────────────────────────────
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=JetBrains+Mono:wght@600;700&display=swap');
-
-/* ── Reset & Base ──────────────────────────────────────────────────────── */
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  background:#f9fafb;
-  font-family:'Inter',sans-serif;
-  color:#111827;
-  -webkit-font-smoothing:antialiased;
-  min-height:100vh;
-}
-button{font-family:inherit;cursor:pointer;border:none;outline:none}
-
-/* ── Loading screen ────────────────────────────────────────────────────── */
-.load-screen{
-  min-height:100vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:16px;background:#f9fafb;
-}
-.load-logo{
-  font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#111827;
-}
-.load-logo span{color:#f97316}
-.load-spinner{
-  width:32px;height:32px;border-radius:50%;
-  border:3px solid #e5e7eb;border-top-color:#f97316;
-  animation:spin .7s linear infinite;
-}
-.load-text{font-size:14px;color:#6b7280}
-.err-msg{font-size:15px;color:#dc2626;text-align:center;max-width:320px}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ── Top Navigation Bar ────────────────────────────────────────────────── */
-.topbar{
-  position:sticky;top:0;z-index:100;
-  display:flex;align-items:center;gap:16px;
-  padding:0 24px;height:56px;
-  background:#fff;border-bottom:1px solid #e5e7eb;
-}
-.topbar-brand{
-  font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#111827;
-  margin-right:auto;
-}
-.topbar-brand span{color:#f97316}
-.topbar-center{display:flex;gap:8px;align-items:center}
-.chip{
-  display:inline-flex;align-items:center;
-  padding:5px 12px;border-radius:6px;
-  border:1px solid #e5e7eb;background:#fff;
-  font-size:12px;font-weight:600;color:#374151;
-}
-.chip-muted{color:#9ca3af;border-color:#f3f4f6;background:#f9fafb}
-.btn-ghost{
-  padding:7px 14px;border-radius:6px;
-  background:transparent;font-size:13px;font-weight:600;
-  color:#6b7280;border:1px solid #e5e7eb;
-  transition:all .15s;
-}
-.btn-ghost:hover{background:#f3f4f6;color:#374151}
-
-/* ── Main Page ─────────────────────────────────────────────────────────── */
-.page{
-  max-width:1100px;margin:0 auto;
-  padding:28px 24px 120px;
-  display:flex;flex-direction:column;gap:20px;
-}
-
-/* ── Buttons ────────────────────────────────────────────────────────────── */
-.btn-pri{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:10px 18px;border-radius:8px;
-  background:#f97316;color:#fff;
-  font-size:14px;font-weight:600;
-  box-shadow:0 1px 3px rgba(249,115,22,.3);
-  transition:all .15s;
-}
-.btn-pri:hover{background:#ea580c;box-shadow:0 4px 12px rgba(249,115,22,.35);transform:translateY(-1px)}
-.btn-out{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:10px 18px;border-radius:8px;
-  background:#fff;color:#374151;
-  font-size:14px;font-weight:600;
-  border:1px solid #d1d5db;
-  transition:all .15s;
-}
-.btn-out:hover{background:#f9fafb;transform:translateY(-1px)}
-.link-btn{
-  background:none;border:none;padding:0;
-  font-size:13px;font-weight:600;color:#f97316;
-  cursor:pointer;transition:color .15s;
-}
-.link-btn:hover{color:#ea580c}
-
-/* ── Hero Strip ─────────────────────────────────────────────────────────── */
-.hero-strip{
-  display:flex;align-items:flex-start;justify-content:space-between;
-  gap:24px;padding:28px;border-radius:12px;
-  background:#fff;border:1px solid #e5e7eb;
-}
-.hero-left{flex:1}
-.hero-eyebrow{
-  font-size:11px;font-weight:700;letter-spacing:.1em;
-  text-transform:uppercase;color:#9ca3af;margin-bottom:8px;
-}
-.hero-title{
-  font-size:clamp(22px,3vw,30px);font-weight:800;
-  letter-spacing:-.02em;color:#111827;line-height:1.2;margin-bottom:6px;
-}
-.hero-sub{font-size:14px;color:#6b7280;margin-bottom:18px;line-height:1.5}
-.hero-btns{display:flex;gap:10px;flex-wrap:wrap}
-.hero-right{flex-shrink:0}
-
-/* GST Health Card */
-.health-card{
-  padding:20px 24px;border-radius:10px;
-  background:#f9fafb;border:1px solid #e5e7eb;
-  text-align:center;min-width:160px;
-}
-.health-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px}
-.health-score{font-size:40px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1}
-.health-badge{font-size:12px;font-weight:700;margin-top:4px}
-.health-checks{margin-top:12px;display:flex;flex-direction:column;gap:6px;text-align:left}
-.hcheck{display:flex;align-items:center;gap:7px;font-size:12px;color:#6b7280}
-.dot-ok{width:7px;height:7px;border-radius:50%;background:#10b981;flex-shrink:0}
-.dot-warn{width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0}
-
-/* ── Compliance nudges ─────────────────────────────────────────────────── */
-.nudge-panel{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
-.nudge-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.nudge-kicker{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af}
-.nudge-title{font-size:16px;font-weight:800;color:#111827;margin-top:4px}
-.nudge-link{border:1px solid #fed7aa;background:#fff7ed;color:#c2410c;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
-.nudge-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.nudge-card{text-align:left;border-radius:10px;padding:12px;border:1px solid #e5e7eb;background:#f8fafc;cursor:pointer;display:flex;flex-direction:column;gap:4px}
-.nudge-card strong{font-size:13px;color:#0f172a}
-.nudge-card span{font-size:12px;color:#64748b;line-height:1.4}
-.nudge-critical{border-color:#fecaca;background:#fef2f2}
-.nudge-warn{border-color:#fde68a;background:#fffbeb}
-.nudge-info{border-color:#bfdbfe;background:#eff6ff}
-
-/* ── Stat Cards Grid ────────────────────────────────────────────────────── */
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.stat-card{
-  padding:20px;border-radius:10px;
-  background:#fff;border:1px solid #e5e7eb;
-  transition:box-shadow .2s,transform .2s;
-}
-.stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06);transform:translateY(-2px)}
-.stat-icon{
-  width:34px;height:34px;border-radius:8px;display:inline-flex;
-  align-items:center;justify-content:center;
-  font-size:16px;font-weight:700;margin-bottom:12px;
-}
-.stat-icon-green{background:#d1fae5;color:#065f46}
-.stat-icon-blue{background:#dbeafe;color:#1e40af}
-.stat-icon-violet{background:#ede9fe;color:#4c1d95}
-.stat-icon-amber{background:#fef3c7;color:#92400e}
-.stat-label{font-size:12px;font-weight:600;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
-.stat-value{
-  font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;
-  letter-spacing:-.02em;margin-bottom:4px;line-height:1.1;
-}
-.stat-green{color:#059669}
-.stat-blue{color:#2563eb}
-.stat-violet{color:#7c3aed}
-.stat-amber{color:#d97706}
-.stat-sub{font-size:12px;color:#9ca3af}
-
-/* ── Mid Grid (deadlines + actions) ──────────────────────────────────────── */
-.mid-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-
-/* Deadline Card */
-.deadline-card{
-  padding:20px;border-radius:10px;
-  background:#fff;border:1px solid #e5e7eb;
-  display:flex;flex-direction:column;gap:8px;
-  transition:box-shadow .2s;
-}
-.deadline-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}
-.deadline-urgent{border-color:#fca5a5;background:#fff7f7}
-.deadline-code{
-  font-family:'JetBrains Mono',monospace;
-  font-size:11px;font-weight:700;letter-spacing:.08em;color:#9ca3af;
-}
-.deadline-name{font-size:16px;font-weight:700;color:#111827}
-.deadline-date{font-size:13px;font-weight:600;color:#374151}
-.deadline-desc{font-size:12px;color:#6b7280;line-height:1.55;flex:1}
-.deadline-pill{
-  display:inline-flex;align-items:center;
-  padding:3px 9px;border-radius:99px;
-  font-size:11px;font-weight:700;
-}
-.safe{background:#d1fae5;color:#065f46}
-.warning{background:#fef3c7;color:#92400e}
-.overdue{background:#fee2e2;color:#991b1b}
-.deadline-btn{
-  width:100%;padding:9px;border-radius:7px;
-  border:1px solid #e5e7eb;background:#f9fafb;
-  font-size:13px;font-weight:600;color:#374151;
-  transition:all .15s;margin-top:2px;
-}
-.deadline-btn:hover{background:#f3f4f6;border-color:#d1d5db}
-
-/* Actions Panel */
-.actions-panel{
-  padding:20px;border-radius:10px;
-  background:#fff;border:1px solid #e5e7eb;
-}
-.panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:12px}
-.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.action-row{
-  width:100%;display:flex;align-items:center;gap:12px;
-  padding:12px;border-radius:8px;background:transparent;
-  border:1px solid transparent;text-align:left;
-  transition:all .15s;margin-bottom:6px;color:#111827;
-}
-.action-row:last-child{margin-bottom:0}
-.action-row:hover{background:#f9fafb;border-color:#e5e7eb}
-.action-icon{
-  width:34px;height:34px;border-radius:8px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-}
-.action-orange{background:#fef3c7;color:#ea580c}
-.action-amber{background:#ffedd5;color:#c2410c}
-.action-blue{background:#dbeafe;color:#1d4ed8}
-.action-green{background:#d1fae5;color:#059669}
-.action-text{flex:1}
-.action-text strong{display:block;font-size:13px;font-weight:700;color:#111827;margin-bottom:1px}
-.action-text span{font-size:12px;color:#6b7280}
-.action-arrow{font-size:18px;color:#d1d5db;font-weight:300}
-
-/* ── Invoices Panel ──────────────────────────────────────────────────────── */
-.invoices-panel{
-  padding:20px;border-radius:10px;
-  background:#fff;border:1px solid #e5e7eb;
-}
-.inv-table{display:flex;flex-direction:column}
-.inv-row{
-  display:grid;
-  grid-template-columns:120px 1fr 100px 80px 85px 100px;
-  gap:12px;align-items:center;padding:11px 14px;
-  font-size:13px;
-}
-.inv-header{
-  color:#6b7280;font-size:11px;font-weight:700;
-  text-transform:uppercase;letter-spacing:.05em;
-  border-bottom:1px solid #e5e7eb;padding-bottom:10px;margin-bottom:4px;
-}
-.inv-data-row{
-  width:100%;text-align:left;background:transparent;border:none;
-  border-radius:7px;cursor:pointer;color:#111827;
-  transition:background .12s;
-}
-.inv-data-row:hover{background:#f9fafb}
-.inv-num{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#374151}
-.inv-party{font-weight:500;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.inv-date{font-size:12px;color:#6b7280}
-.inv-amount{font-family:'JetBrains Mono',monospace;font-weight:700;color:#111827;text-align:right}
-.text-right{text-align:right}
-
-/* Badges */
-.inv-badge{
-  display:inline-flex;align-items:center;
-  padding:3px 8px;border-radius:5px;
-  font-size:11px;font-weight:700;
-}
-.badge-sale{background:#d1fae5;color:#065f46}
-.badge-pur{background:#dbeafe;color:#1e40af}
-.badge-ok{background:#d1fae5;color:#065f46}
-.badge-warn{background:#fef3c7;color:#92400e}
-.badge-bad{background:#fee2e2;color:#991b1b}
-
-/* ── Empty State ─────────────────────────────────────────────────────────── */
-.empty-state{
-  text-align:center;padding:40px 20px;
-  display:flex;flex-direction:column;align-items:center;gap:10px;
-}
-.empty-icon{
-  width:60px;height:60px;border-radius:12px;background:#f3f4f6;
-  display:flex;align-items:center;justify-content:center;color:#9ca3af;margin-bottom:4px;
-}
-.empty-title{font-size:16px;font-weight:700;color:#111827}
-.empty-sub{font-size:14px;color:#6b7280;margin-bottom:4px}
-
-/* ── Responsive ──────────────────────────────────────────────────────────── */
-@media(max-width:1080px){
-  .stat-grid,.nudge-list{grid-template-columns:1fr 1fr}
-  .mid-grid{grid-template-columns:1fr 1fr}
-}
-@media(max-width:720px){
-  .page{padding:20px 16px 110px}
-  .topbar{padding:0 16px}
-  .topbar-center{display:none}
-  .hero-strip{flex-direction:column;gap:16px}
-  .hero-right{align-self:stretch}
-  .health-card{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;text-align:left}
-  .stat-grid,.nudge-list{grid-template-columns:1fr}
-  .mid-grid{grid-template-columns:1fr}
-  .inv-row{grid-template-columns:1fr auto;gap:8px}
-  .inv-header{display:none}
-  .inv-data-row{grid-template-columns:1fr auto}
-  .inv-party,.inv-date,.inv-badge.badge-ok,.inv-badge.badge-warn,.inv-badge.badge-bad,.inv-badge.badge-sale,.inv-badge.badge-pur{display:none}
-}
-`;
