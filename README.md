@@ -2,519 +2,321 @@
 
 # 🧾 KhataGST
 
-### **The Autonomous AI Chartered Accountant for Indian MSMEs**
-*Autonomous GST Compliance • Section 17(5) ITC Optimization • Statutory Tax RAG • Deterministic Return Filing*
+### From scattered invoices to a clearer GST workflow.
 
-[![Live App](https://img.shields.io/badge/Live_App-khata--gst.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://khata-gst.vercel.app)
-[![Live API](https://img.shields.io/badge/Live_API-khatagst.onrender.com-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://khatagst.onrender.com)
-[![Health](https://img.shields.io/badge/Health-/health-0A7A3E?style=for-the-badge)](https://khatagst.onrender.com/health)
-[![Backend](https://img.shields.io/badge/Backend-Fastify%20%7C%20TypeScript%20%7C%20Node.js-000000?style=for-the-badge&logo=fastify&logoColor=white)](https://github.com/btw-itz-sid/KhataGST)
-[![Frontend](https://img.shields.io/badge/Frontend-React%20%7C%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://github.com/btw-itz-sid/KhataGST)
-[![Database](https://img.shields.io/badge/Database-Neon%20PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
-[![AI](https://img.shields.io/badge/AI-Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+AI-assisted bookkeeping, purchase reconciliation, and GST return preparation for Indian small businesses and accountants.
 
-<br />
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](frontend/package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Full_stack-3178C6?logo=typescript&logoColor=white)](backend/package.json)
+[![Fastify](https://img.shields.io/badge/Fastify-API-000000?logo=fastify)](backend/src/index.ts)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)](backend/db/migrations)
+[![Gemini](https://img.shields.io/badge/Gemini-Invoice_AI-4285F4?logo=google&logoColor=white)](backend/src/services/billScanService.ts)
 
-**Try it:** [https://khata-gst.vercel.app](https://khata-gst.vercel.app) · API [https://khatagst.onrender.com](https://khatagst.onrender.com)
+**[Open demo](https://khata-gst.vercel.app) · [API health](https://khatagst.onrender.com/health) · [API docs](https://khatagst.onrender.com/api/docs)**
 
-Demo login OTP = phone ke **last 4 digits**. Render free tier pe pehla hit ~30–60s cold start.
-
-[Explore Features](#-key-capabilities) • [System Architecture](#-system-architecture) • [Statutory AI CA](#-autonomous-ai-ca--tax-rag-engine) • [API Reference](#-complete-api-reference) • [Getting Started](#-getting-started) • [Deployment](#-production-deployment)
-
-<br />
-
-### Live URLs
-| | URL |
-|---|---|
-| **App** | https://khata-gst.vercel.app |
-| **API** | https://khatagst.onrender.com |
-| **Health** | https://khatagst.onrender.com/health |
-| **Portfolio** | https://portfolio1-btw-itz-sids-projects.vercel.app/ |
-
----
+[Overview](#overview) · [Features](#features) · [Architecture](#architecture) · [Quick start](#quick-start) · [Enterprise roadmap](#enterprise-roadmap)
 
 </div>
 
-## 📌 Executive Summary & The Problem
-
-India is home to over **63 million Micro, Small, and Medium Enterprises (MSMEs)** that contribute roughly 30% to the country's GDP. Despite digitization under the Goods and Services Tax (GST) regime, tax compliance remains a crippling bottleneck:
-
-1. **Complex Statutory Compliance Traps**: A standard regular taxpayer must navigate up to **37 statutory filings annually** (GSTR-1, GSTR-3B, GSTR-9, etc.) alongside evolving CBIC circulars, notifications, and GST Council rate revisions.
-2. **Massive Input Tax Credit (ITC) Leakage**: Small businesses lose an estimated **15% to 20% of eligible ITC** due to mismatched supplier invoices, inaccurate HSN/SAC classifications, and strict reconciliation rules under Section 16(2)(aa) / GSTR-2B.
-3. **Section 17(5) Blocked Credit Penalties**: Inadvertently claiming ITC on blocked expenses (e.g., motor vehicles, food & beverages, personal consumption, club memberships) triggers mandatory departmental notices, tax recovery, and **18% annual interest penalties** under Section 50.
-4. **Prohibitive CA & Compliance Costs**: Retaining dedicated Chartered Accountants (CAs) and tax consultants costs MSMEs anywhere from ₹3,000 to ₹25,000 per month, while manual paper-to-Excel bookkeeping creates compounding errors.
-
-### 💡 The KhataGST Solution
-
-**KhataGST** transforms GST compliance from a tedious, error-prone manual process into a **self-driving, autonomous financial intelligence system**. By pairing high-precision multimodal AI invoice OCR with a deterministic tax engine and a vector-indexed statutory knowledge layer, KhataGST acts as an always-on Autonomous Chartered Accountant:
-
-- 📸 **Zero-Touch Invoice Extraction**: Captures physical receipts, scans, and PDFs with multimodal AI, performing paise-level mathematical verification with zero floating-point errors.
-- 🧠 **Statutory Tax RAG & Legal Advisor**: Answers complex GST queries with exact citations from the CGST/SGST Acts, Central Tax notifications, and landmark High Court / Supreme Court precedents.
-- 🛡️ **Autonomous Section 17(5) ITC Classifier**: Analyzes purchase line-items in real time, automatically flagging blocked credits, eligible ITC, and Reverse Charge Mechanism (RCM) liabilities.
-- ⚡ **Deterministic Return Computation**: Compiles GSTR-1 outward supply tables (B2B, B2CL, B2CS, HSN summaries) and GSTR-3B summary liabilities with mathematical precision.
-- 🏢 **Multi-Entity & Enterprise RBAC**: Enables business owners, accountants, and practicing CAs to manage multiple GSTINs with database-enforced role access and immutable audit logging.
-
 ---
 
-## 🏛️ System Architecture
+## Overview
 
-KhataGST is architected around a strict **4-Layer Autonomous Tax Intelligence Framework** with a clean monorepo separation between backend and frontend services:
+KhataGST brings everyday bookkeeping and monthly GST preparation into one workspace. Business owners can capture bills, maintain sales and purchase records, review input tax credit (ITC) suggestions, compare purchases with uploaded GSTR-2B data, and prepare summaries for their accountant or GST portal workflow.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                            KHATA-GST ARCHITECTURE                            │
-└──────────────────────────────────────────────────────────────────────────────┘
+The application combines **AI for document extraction and assistance** with **application code for tax calculations and return aggregation**. Financial amounts use integer paise in the core calculation workflow.
 
- ┌────────────────────────────────────────────────────────────────────────────┐
- │  LAYER 1: USER INTERACTION & CLIENT PRESENTATION (frontend/)              │
- │  • React 18 + Vite SPA with Glassmorphic Dark Design System                │
- │  • Mobile-First Responsive Layouts (PWA Ready)                             │
- │  • Centralized API Layer with Environment-Driven Base URL Routing          │
- │  • Session Persistence & React Error Boundary Resilience                   │
- └─────────────────────────────────────┬──────────────────────────────────────┘
-                                       │ HTTPS / JSON / Multipart
-                                       ▼
- ┌────────────────────────────────────────────────────────────────────────────┐
- │  LAYER 2: SECURE API GATEWAY & BUSINESS CORE (backend/)                   │
- │  • Node.js + Fastify Engine with Structured HTTP Pipeline                  │
- │  • Per-Phone OTP Rate Limiting & Cooldown Protection (HTTP 429)            │
- │  • JWT Session Management (7-day lifecycle) with Database State Validation │
- │  • Database-Enforced Role-Based Access Control (RBAC: Owner, Admin, CA)    │
- │  • Immutable Compliance Audit Logging (`audit_logs` table)                 │
- │  • Sentry Telemetry & Database-Probing `/health` Monitoring               │
- └──────────────────┬──────────────────┬──────────────────┬───────────────────┘
-                    │                  │                  │
-         ┌──────────▼────────┐ ┌───────▼────────┐ ┌───────▼────────┐
-         │ MULTIMODAL OCR    │ │ DETERMINISTIC  │ │ STATUTORY RAG  │
-         │ Google Gemini AI  │ │ GST ENGINE     │ │ KNOWLEDGE BASE │
-         │ Vision API        │ │ Paise-level    │ │ pgvector +     │
-         │ Structured Schema │ │ Math Precision │ │ CGST Act 2017  │
-         └──────────┬────────┘ └───────┬────────┘ └───────┬────────┘
-                    │                  │                  │
- ┌──────────────────▼──────────────────▼──────────────────▼───────────────────┐
- │  LAYER 3: PERSISTENCE & STORAGE INFRASTRUCTURE                             │
- │  • Neon Serverless PostgreSQL with SSL Connection Pooling & Auto-Retry     │
- │  • Numbered Migrations (001_schema.sql to 005_knowledge_vector.sql)        │
- │  • Unified Cloud Object Storage: AWS S3 / Cloudflare R2 / Local Disk       │
- └─────────────────────────────────────┬──────────────────────────────────────┘
-                                       │
- ┌─────────────────────────────────────▼──────────────────────────────────────┐
- │  LAYER 4: EXTERNAL INTEGRATIONS & TELEMETRY                                │
- │  • Fast2SMS Production OTP Gateway                                         │
- │  • Razorpay Payment Orders & Verified HMAC-SHA256 Webhooks                 │
- │  • Nodemailer Multi-Provider Email Notifications (SMTP / Gmail)            │
- │  • Sentry Error Tracking & Exception Reporting                             │
- └────────────────────────────────────────────────────────────────────────────┘
+| For business owners | For accountants | For developers |
+| --- | --- | --- |
+| Capture bills and review business activity | Review reconciliation differences and export working data | React frontend, modular Fastify API, and PostgreSQL schema |
+| See credit suggestions and preparation status | Work with GSTR-1 and GSTR-3B summaries | Separate OCR, tax, storage, and knowledge services |
+
+> **Current scope:** KhataGST prepares returns and exports supporting data. It does not submit returns to GSTN, generate a filing ARN, or pay GST. GSTR-2B imports and accept/reject/pending decisions are stored locally; they are not synchronized with the GST portal. AI suggestions require review.
+
+## The workflow
+
+```mermaid
+flowchart LR
+    A["1 · Capture<br/>Scan a bill or create an invoice"] --> B["2 · Review<br/>Check fields and ITC suggestions"]
+    B --> C["3 · Reconcile<br/>Compare purchases with uploaded 2B"]
+    C --> D["4 · Prepare<br/>Compute GSTR-1 and GSTR-3B"]
+    D --> E["5 · Export<br/>Share working data with your accountant"]
+    classDef blue fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef green fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    class A blue;
+    class B,C purple;
+    class D,E green;
 ```
 
----
+## Features
 
-## ✨ Key Capabilities
+| Capability | What is implemented |
+| --- | --- |
+| **Invoice capture** | Gemini-assisted extraction from JPEG, PNG, WebP, and PDF uploads; 10 MB file limit and a review workflow |
+| **Sales and purchases** | Invoice creation, editing, duplication, party records, and tax breakdowns |
+| **ITC assistance** | Line-item eligibility suggestions, blocked-credit flags, and expense classification |
+| **GSTR-2B reconciliation** | JSON import, books-versus-2B matching, discrepancy summaries, and local accept/reject/pending decisions |
+| **Return preparation** | GSTR-1 and GSTR-3B computation, recomputation, and preparation status |
+| **Exports** | GSTR-1 Excel workbook, invoice CSV, and a JSON accountant share pack |
+| **AI copilot** | GST questions with retrieved knowledge context; semantic retrieval when embeddings are configured and keyword fallback |
+| **Business workspace** | Onboarding, dashboard, profile, HSN/SAC rate lookup, usage limits, and compliance nudges |
+| **Subscriptions** | Razorpay order and verification routes plus a webhook handler; credentials required |
+| **Operations foundation** | JWT authentication, OTP hashes and attempt limits, role middleware, selected audit events, server logging, and database health probe |
 
-### 1. 📸 Intelligent Bill Scanning & Multimodal OCR
-- Accepts invoice photos, JPEG/PNG images, and multi-page PDFs (up to 10MB).
-- Powered by **Google Gemini 2.5 Flash** with strict JSON Schema constraints.
-- Extracts: Supplier/Customer GSTIN, Invoice Number, Invoice Date, Due Date, HSN/SAC codes, Line-item descriptions, quantities, unit prices, taxable values, CGST, SGST, and IGST breakdowns.
-- **Zero Floating-Point Drift**: All monetary values are immediately normalized into integer **paise** (`₹100.50` = `10050` paise) to eliminate JavaScript IEEE-754 floating-point inaccuracies.
-- Automatic image persistence via **AWS S3 / Cloudflare R2** with local storage fallback.
+**Implementation boundaries:** Role middleware and linked-CA access helpers exist, but permission coverage needs hardening. Audit records are not immutable. Subscription payments are separate from GST tax payments. Export compatibility and tax rules need independent validation before production filing use.
 
-### 2. 🧠 Autonomous AI CA & Tax RAG Engine
-- Interactive conversational workspace for complex GST advisory queries.
-- Backed by statutory knowledge embeddings in **Neon PostgreSQL (`pgvector`)**.
-- Domain expertise covers:
-  - **Section 16**: Four statutory conditions for claiming Input Tax Credit.
-  - **Section 17(5)**: Explicit blocked credit clauses (motor vehicles, catering, employee insurance, works contract for immovable property, lost/stolen goods).
-  - **Rule 88A**: Mandatory ITC utilization order (IGST first against IGST, then CGST/SGST in any proportion).
-  - **Rule 86B**: Mandatory 1% minimum tax discharge through electronic cash ledger for taxable turnover exceeding ₹50 Lakhs.
-  - **Reverse Charge Mechanism (RCM)** under Section 9(3) and 9(4) for goods transport agencies (GTA), legal advocates, and unregistered purchases.
+## Architecture
 
-### 3. 🛡️ Section 17(5) Autonomous Expense Classifier
-- Submits any expense description (e.g., *"Staff lunch during quarterly client review"* or *"Company car annual insurance premium"*) to the AI classification agent.
-- Returns:
-  - `itcEligibility`: `eligible` | `blocked` | `rcm_applicable`
-  - `blockedSection`: Precise statutory clause (e.g., `Section 17(5)(b)(i)` or `Section 17(5)(a)`)
-  - `confidence`: Confidence score (0.0 to 1.0)
-  - `explanation`: Detailed legal justification in plain business language
-  - `recommendedAccountingLedger`: Standard accounting entry suggestion (e.g., *"Staff Welfare Expense (ITC Ineligible)"*)
+KhataGST is a **monorepo with two deployable applications**: a React SPA and a modular Fastify backend. OCR and reconciliation currently run within API request handlers; durable workers are a proposed next step.
 
-### 4. 📊 Deterministic GSTR-1 & GSTR-3B Computation
-- **GSTR-1 Outward Supplies Engine**:
-  - Automatically segregates invoices into B2B (registered parties), B2CL (inter-state unregistered > ₹2.5 Lakhs), B2CS (intra-state and small inter-state unregistered), and HSN summary tables.
-  - Generates audit-ready Excel (`.xlsx`) and CSV exports formatted for the official GST Portal offline utility.
-- **GSTR-3B Summary Engine**:
-  - Aggregates total outward taxable value, eligible ITC, ineligible ITC under Section 17(5), and net tax payable.
+### System map — current implementation
 
-### 5. 🔒 Enterprise Security, RBAC & Telemetry
-- **JWT Authentication**: 7-day token lifespan with instant client-side logout.
-- **OTP Send Rate-Limiting**: 60-second per-phone cooldown to eliminate SMS credit exhaustion and denial-of-wallet attacks.
-- **Role-Based Access Control**: Database-backed authorization for `owner`, `admin`, `ca`, `accountant`, and `viewer` roles.
-- **Compliance Audit Trail**: Every sensitive operation (invoice creation, return computation, profile change) is logged in `audit_logs` with IP and user agent tracking.
-- **Proactive Health Probing**: `/health` endpoint executes live connection and latency probes against Neon PostgreSQL.
-
----
-
-## 📂 Repository Structure
-
-The project is structured as an enterprise-grade monorepo:
-
+```mermaid
+flowchart TB
+    USER["Business owner / accountant"]
+    subgraph CLIENT["CLIENT · frontend/"]
+        UI["React 19 + TypeScript + Vite 8<br/>Dashboard · Invoices · Scan · Reconcile · Returns"]
+        API["API client + browser session utilities"]
+        UI --> API
+    end
+    subgraph SERVER["APPLICATION · backend/"]
+        HTTP["Fastify HTTP API<br/>JWT · CORS · Rate limiting · Validation"]
+        CORE["Business services<br/>Invoices · GST calculations · Returns · Reconciliation"]
+        AI["AI services<br/>Bill extraction · Classification · Knowledge retrieval"]
+        ADAPTERS["Integration services<br/>Storage · Email · Subscription payments"]
+        HTTP --> CORE
+        HTTP --> AI
+        HTTP --> ADAPTERS
+    end
+    subgraph DATA["PERSISTENCE"]
+        DB[("Neon PostgreSQL<br/>Business records · Returns · 2B imports · Audit events")]
+        VECTOR[("pgvector<br/>Seeded knowledge embeddings")]
+        FILES[("R2 / S3<br/>Local disk fallback")]
+    end
+    subgraph PROVIDERS["OPTIONAL EXTERNAL PROVIDERS"]
+        GEMINI["Google Gemini<br/>Extraction · Generation · Embeddings"]
+        SERVICES["Fast2SMS · Razorpay · Email provider"]
+        SENTRY["Sentry initialization<br/>when DSN is configured"]
+    end
+    USER --> UI
+    API -->|"HTTPS · JSON / multipart"| HTTP
+    CORE --> DB
+    AI --> DB
+    AI --> VECTOR
+    AI --> GEMINI
+    ADAPTERS --> FILES
+    ADAPTERS --> SERVICES
+    HTTP -.-> SENTRY
+    classDef client fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef app fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef data fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef external fill:#fef3c7,stroke:#d97706,color:#78350f;
+    class UI,API client;
+    class HTTP,CORE,AI,ADAPTERS app;
+    class DB,VECTOR,FILES data;
+    class GEMINI,SERVICES,SENTRY external;
 ```
+
+Relational records and vectors share one PostgreSQL database. Providers are selected through environment configuration. This diagram describes code boundaries; it does not establish which providers are configured in the demo deployment.
+
+### Invoice capture — request flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as React workspace
+    participant API as Fastify API
+    participant Storage as Storage service
+    participant AI as Gemini
+    participant DB as PostgreSQL
+    User->>UI: Upload purchase bill
+    UI->>API: Authenticated multipart request
+    API->>API: Check business access and scan allowance
+    API->>Storage: Store original document
+    API->>DB: Create scan record
+    API->>AI: Request structured extraction
+    alt Extraction succeeds
+        AI-->>API: Extracted bill fields
+        API->>API: Normalize data and attach ITC suggestions
+    else Extraction unavailable or fails
+        API->>API: Create manual-review fallback
+    end
+    API->>DB: Update scan with extraction or review result
+    API-->>UI: Return scan result for review
+    User->>UI: Review and correct fields before saving invoice
+```
+
+### Code map
+
+```text
 KhataGST/
-├── backend/                             # Fastify + TypeScript Backend Service
-│   ├── src/
-│   │   ├── index.ts                     # Fastify server bootstrap, Sentry, Swagger UI, /health
-│   │   ├── routes/                      # Modular API route controllers (11 files)
-│   │   │   ├── admin.ts                 # Admin analytics & user/business inspection
-│   │   │   ├── aiCaRoutes.ts            # AI CA Copilot & Section 17(5) classifier endpoints
-│   │   │   ├── auth.ts                  # OTP send/verify, JWT issuance, 60s cooldown
-│   │   │   ├── businesses.ts            # Business profile CRUD & state management
-│   │   │   ├── export.ts                # GSTR-1 Excel (.xlsx) & CSV export generation
-│   │   │   ├── gstRates.ts              # HSN/SAC GST rate master CRUD & search
-│   │   │   ├── invoices.ts              # Invoice CRUD, line-items, duplication & tax math
-│   │   │   ├── parties.ts               # Supplier & Customer directory management
-│   │   │   ├── payments.ts              # Razorpay order generation & verified webhooks
-│   │   │   ├── returns.ts               # GSTR-1 & GSTR-3B compute and recompute logic
-│   │   │   └── scans.ts                 # Multipart bill upload, Gemini OCR, storage
-│   │   ├── services/                    # Core business logic & external integrations
-│   │   │   ├── billScanService.ts       # Multimodal Gemini vision parser & JSON validator
-│   │   │   ├── emailService.ts          # Nodemailer email templates (Welcome, Return, Reminders)
-│   │   │   ├── exportService.ts         # ExcelJS multi-sheet workbook compiler
-│   │   │   ├── gstEngine.ts             # Core tax math & paise normalization
-│   │   │   ├── gstr1Service.ts          # GSTR-1 B2B/B2C/HSN aggregation engine
-│   │   │   ├── gstr3bService.ts         # GSTR-3B tax liability & ITC compute engine
-│   │   │   ├── knowledgeService.ts      # Statutory GST RAG vector knowledge retriever
-│   │   │   └── storageService.ts        # Cloudflare R2 / AWS S3 / Local storage abstraction
-│   │   ├── middleware/
-│   │   │   └── rbac.ts                  # requireRole() guard & logAuditEvent() helper
-│   │   ├── agents/
-│   │   │   └── taxClassifierAgent.ts    # Section 17(5) heuristic & AI classification agent
-│   │   ├── lib/
-│   │   │   └── db.ts                    # Neon PostgreSQL pool, retry logic, health probe
-│   │   └── types/
-│   │       └── fastify.d.ts             # Fastify TypeScript declaration augmentation
-│   ├── db/
-│   │   └── migrations/                  # Numbered SQL schema migrations
-│   │       ├── 001_schema.sql           # Core tables: users, businesses, invoices, returns
-│   │       ├── 002_pre_deploy.sql       # OTP verifications table & performance indexes
-│   │       ├── 003_rbac_storage.sql     # RBAC roles, storage metadata, audit_logs table
-│   │       ├── 004_gst_rates.sql        # GST rate master table & HSN/SAC index
-│   │       └── 005_knowledge_vector.sql # pgvector extension & GST statutory embeddings table
-│   ├── .env.example                     # Comprehensive backend environment template
-│   ├── package.json                     # Backend dependencies & build scripts
-│   └── tsconfig.json                    # Strict Node16 TypeScript configuration
-│
-├── frontend/                            # React 18 + Vite Frontend Application
-│   ├── src/
-│   │   ├── components/                  # Shared UI components (ErrorBoundary, LoadingSpinner)
-│   │   ├── lib/                         # Client utilities (api.ts with BASE_URL, session.ts)
-│   │   ├── pages/                       # 11 Screen components
-│   │   │   ├── Admin.tsx                # Enterprise administrative dashboard
-│   │   │   ├── AiCaCopilot.tsx          # Autonomous AI CA advisory & classification workspace
-│   │   │   ├── Dashboard.tsx            # Financial KPIs, tax summary & quick actions
-│   │   │   ├── Export.tsx               # GSTR-1 Excel & CSV export generator
-│   │   │   ├── GSTRates.tsx             # HSN/SAC GST rate master explorer & editor
-│   │   │   ├── Invoices.tsx             # Invoice management, filtering, and copy-duplication
-│   │   │   ├── Login.tsx                # Phone OTP authentication wizard
-│   │   │   ├── Onboarding.tsx           # Multi-step business setup & GSTIN validator
-│   │   │   ├── Pricing.tsx              # Subscription plans & Razorpay checkout
-│   │   │   ├── Profile.tsx              # Business settings, trade name & address editor
-│   │   │   └── Scan.tsx                 # Drag-and-drop bill scan & AI review workbench
-│   │   ├── App.tsx                      # Central router & session guard
-│   │   ├── main.tsx                     # React root wrapped in ErrorBoundary & StrictMode
-│   │   └── index.css                    # Tailwind CSS + Glassmorphic design tokens
-│   ├── .env.example                     # Frontend environment template
-│   ├── package.json                     # Frontend dependencies
-│   └── vite.config.ts                   # Vite build configuration
-│
-├── docs/                                # Technical Documentation & Runbooks
-│   ├── BACKUP_AND_RECOVERY.md           # Neon PITR & pg_dump disaster recovery guide
-│   └── samples/                         # Sample test files & exports
-│
-├── railway.toml                         # Railway production deployment configuration
-├── .gitignore                           # Repository ignore rules (protects all .env & secrets)
-└── README.md                            # Enterprise project documentation
+├── frontend/
+│   ├── src/pages/             Dashboard, scan, invoices, reconciliation, returns
+│   ├── src/components/        Shared UI and error boundary
+│   └── src/lib/               API client, session, and state helpers
+├── backend/
+│   ├── src/routes/            HTTP endpoints and request handling
+│   ├── src/services/          Tax, OCR, reconciliation, exports, integrations
+│   ├── src/agents/            Expense classifier and ITC decisions
+│   ├── src/middleware/        Role checks and audit helper
+│   ├── src/lib/               Database, ownership, and OTP utilities
+│   ├── src/scripts/           Knowledge embedding seed script
+│   ├── db/migrations/         Ordered SQL migrations: 001–009
+│   └── test/                  Tax, reconciliation, classifier, helper tests
+├── docs/                     Operations guides and enterprise readiness plan
+├── render.yaml               Backend deployment blueprint
+└── railway.toml              Alternative backend deployment configuration
 ```
 
----
+## Quick start
 
-## 🗄️ Database Architecture & Migrations
+### 1. Prerequisites
 
-KhataGST utilizes **Neon Serverless PostgreSQL** with SSL-enforced connection pooling. All database schema changes are managed via ordered, idempotent migrations located in `backend/db/migrations/`:
+- Node.js **22.12+** and npm; see [Vite's runtime requirements](https://vite.dev/guide/).
+- PostgreSQL with the `vector` extension available, such as a configured Neon database.
+- PostgreSQL CLI (`psql`) or a SQL editor for migrations.
+- A Gemini API key for AI extraction and knowledge embeddings.
 
-| Migration File | Description | Key Tables / Columns |
-|---|---|---|
-| `001_schema.sql` | Foundation schema | `users`, `businesses`, `invoices`, `invoice_items`, `parties`, `gst_returns`, `bill_scans`, `payments`, `itc_reconciliation` |
-| `002_pre_deploy.sql` | Production hardening | `otp_verifications` (in-database OTP storage with brute-force tracking), auto-updating `updated_at` triggers |
-| `003_rbac_storage.sql` | Enterprise access & audit | `users.role` (`owner`, `admin`, `ca`, `accountant`), `bill_scans.storage_provider`, `audit_logs` table |
-| `004_gst_rates.sql` | Rate master | `gst_rates` table for HSN/SAC lookup with effective date ranges |
-| `005_knowledge_vector.sql` | AI vector layer | `pgvector` extension, `gst_knowledge_base` table with 768-dimension embeddings |
-| `006_otp_hash_and_knowledge_search.sql` | Security & search | Drops plaintext `otp` column (HMAC hash only), unique section key for upserts, HNSW cosine index |
-
----
-
-## 📡 Complete API Reference
-
-All API routes are prefixed under `/api/v1` and documentable via Swagger UI at `/api/docs`.
-
-### Authentication (`/api/v1/auth`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `POST` | `/send-otp` | Public | Initiates 6-digit OTP delivery (60-second per-phone rate cooldown) |
-| `POST` | `/verify-otp` | Public | Validates OTP, creates/retrieves user, issues 7-day JWT |
-| `GET` | `/me` | JWT | Retrieves authenticated user profile & subscription tier |
-| `POST` | `/logout` | JWT | Invalidates user session |
-
-### AI CA Copilot & Intelligence (`/api/v1/ai-ca`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `POST` | `/ask` | JWT | RAG-powered statutory GST advisory with Act & Section citations |
-| `POST` | `/classify-expense` | JWT | Autonomous Section 17(5) ITC eligibility & RCM classifier |
-| `GET` | `/audit-summary` | JWT | Generates risk and compliance health audit for a business |
-
-### Bill Scans & Multimodal AI (`/api/v1/scans`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `POST` | `/` | JWT | Uploads invoice image/PDF, triggers Gemini AI OCR, saves to S3/R2 |
-| `GET` | `/:id` | JWT | Retrieves scan extraction result and confidence scores |
-| `POST` | `/:id/retry` | JWT | Retries failed or low-confidence AI scans with fallback logic |
-
-### Invoices & Tax Calculations (`/api/v1/invoices`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `POST` | `/` | JWT | Creates invoice with line-items, auto-computes CGST/SGST/IGST in paise |
-| `GET` | `/` | JWT | Lists invoices with pagination, date range, party, and amount filters |
-| `GET` | `/:id` | JWT | Retrieves single invoice with full line-item breakdown |
-| `PUT` | `/:id` | JWT | Updates existing invoice and recalculates tax tables |
-| `DELETE`| `/:id` | JWT | Deletes invoice and associated line-item records |
-| `POST` | `/:id/duplicate` | JWT | Duplicates an existing invoice as a template with a new invoice number |
-
-### GST Returns (`/api/v1/returns`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `POST` | `/gstr1/compute` | JWT | Compiles GSTR-1 return tables (B2B, B2CL, B2CS, HSN) for a period |
-| `POST` | `/gstr3b/compute` | JWT | Compiles GSTR-3B tax summary, eligible ITC, and net tax liability |
-| `POST` | `/gstr1/:id/recompute` | JWT | Recomputes GSTR-1 after invoice modifications |
-| `POST` | `/gstr3b/:id/recompute` | JWT | Recomputes GSTR-3B after invoice modifications |
-| `GET` | `/` | JWT | Lists all filed and computed returns for a business |
-
-### Exports (`/api/v1/export`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `GET` | `/excel` | JWT | Generates and downloads multi-sheet GSTR-1 Excel (`.xlsx`) workbook |
-| `GET` | `/csv` | JWT | Generates and downloads invoice transaction CSV export |
-
-### Rate Master (`/api/v1/gst-rates`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `GET` | `/` | JWT | Lists active GST rates with HSN/SAC filtering |
-| `GET` | `/:hsn_sac` | JWT | Looks up specific HSN or SAC rate details |
-| `POST` | `/` | JWT (Admin) | Adds a new HSN/SAC rate entry |
-| `PUT` | `/:id` | JWT (Admin) | Updates an existing HSN/SAC rate entry |
-| `DELETE`| `/:id` | JWT (Admin) | Soft-deletes a rate entry |
-
-### Payments & Subscriptions (`/api/v1/payments`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `POST` | `/order` | JWT | Creates a Razorpay subscription order (`basic` / `ca_pro`) |
-| `POST` | `/verify` | JWT | Verifies Razorpay payment signature and upgrades user plan |
-| `POST` | `/webhook` | Public | Verified HMAC-SHA256 Razorpay webhook receiver |
-
-### Administration (`/api/v1/admin`)
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `GET` | `/dashboard` | RBAC (`admin`) | Aggregated system metrics (users, businesses, returns, scans) |
-| `GET` | `/users` | RBAC (`admin`) | Paginated user management list with role inspection |
-| `GET` | `/businesses` | RBAC (`admin`) | Paginated business directory across the platform |
-| `GET` | `/returns` | RBAC (`admin`) | Platform-wide GST return filing status monitor |
-
-### System Health
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `GET` | `/health` | Public | Real-time health check probing Neon DB latency and uptime |
-| `GET` | `/api/docs` | Public | Interactive Swagger / OpenAPI 3.0 documentation |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **PostgreSQL**: Neon Serverless PostgreSQL database (with `pgvector` extension enabled)
-- **Google AI Studio**: API key for Gemini 2.5 Flash
-- **Fast2SMS**: API key for production OTP delivery (optional for local development)
-
----
-
-### Step 1: Clone the Repository
-```bash
+```powershell
 git clone https://github.com/btw-itz-sid/KhataGST.git
 cd KhataGST
 ```
 
----
+### 2. Configure the backend
 
-### Step 2: Setup & Configure Backend
+From the repository root:
 
-```bash
+```powershell
 cd backend
-npm install
+npm ci
+Copy-Item .env.example .env
 ```
 
-Create `backend/.env` (refer to `backend/.env.example`):
-```env
-# Database (Neon PostgreSQL)
-DATABASE_URL=postgresql://user:password@ep-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+Edit `backend/.env` and replace the placeholders:
 
-# Security (Generate via: openssl rand -hex 32)
-JWT_SECRET=your-secure-random-32-character-jwt-secret-key
-
-# AI Invoice Scanning
-GEMINI_API_KEY=your-gemini-api-key
-
-# Production OTP (Fast2SMS)
-FAST2SMS_API_KEY=your-fast2sms-api-key
-
-# Razorpay Payments (Optional for dev)
-RAZORPAY_KEY_ID=rzp_test_your_key
-RAZORPAY_SECRET=your_razorpay_secret
-RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
-
-# Sentry Telemetry (Optional)
-# SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
-
-# Cloud Storage (Optional — defaults to local disk)
-# R2_ACCOUNT_ID=your-cloudflare-account-id
-# R2_ACCESS_KEY_ID=your-r2-access-key
-# R2_SECRET_ACCESS_KEY=your-r2-secret-key
-# R2_BUCKET=khatagst-uploads
-
+```dotenv
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require
+JWT_SECRET=REPLACE_WITH_A_LONG_RANDOM_SECRET
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+OTP_MODE=phone_last4
 PORT=3000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ```
 
-Execute database migrations against your Neon database:
-```bash
-# Execute migrations 001 through 005 in order via psql or Neon SQL Editor
-psql "$DATABASE_URL" -f db/migrations/001_schema.sql
-psql "$DATABASE_URL" -f db/migrations/002_pre_deploy.sql
-psql "$DATABASE_URL" -f db/migrations/003_rbac_storage.sql
-psql "$DATABASE_URL" -f db/migrations/004_gst_rates.sql
-psql "$DATABASE_URL" -f db/migrations/005_knowledge_vector.sql
-psql "$DATABASE_URL" -f db/migrations/006_otp_hash_and_knowledge_search.sql
+Generate your own JWT secret; production startup requires at least 32 characters. Full storage, email, payment, and telemetry settings are in [backend/.env.example](backend/.env.example).
+
+**Apply migrations `001` through `009` in filename order to a fresh development database.** The application does not run migrations automatically. From `backend/` in PowerShell:
+
+```powershell
+# Set explicitly: psql does not load the application's .env file.
+$env:DATABASE_URL = 'YOUR_DEVELOPMENT_DATABASE_CONNECTION_STRING'
+Get-ChildItem db/migrations/*.sql | Sort-Object Name | ForEach-Object {
+    psql "$env:DATABASE_URL" -v ON_ERROR_STOP=1 -f $_.FullName
+    if ($LASTEXITCODE -ne 0) { throw "Migration failed: $($_.Name)" }
+}
 ```
 
-Embed the statutory sections for the AI CA's semantic search (needs `GEMINI_API_KEY`), and run the tests:
-```bash
+For an existing database, identify and apply only pending migrations after taking a backup. There is no migration history runner yet.
+
+```powershell
+# Optional: populate semantic search embeddings; requires Gemini credentials.
 npm run seed:knowledge
-npm test
-```
-
-Run the backend development server:
-```bash
 npm run dev
-# Server running at http://localhost:3000
-# API Docs available at http://localhost:3000/api/docs
-# Health probe available at http://localhost:3000/health
 ```
 
----
+Backend: [localhost:3000](http://localhost:3000) · [Health](http://localhost:3000/health) · [Swagger UI](http://localhost:3000/api/docs).
 
-### Step 3: Setup & Configure Frontend
+### 3. Start the frontend
 
-In a new terminal window:
-```bash
+Open another terminal at the repository root:
+
+```powershell
 cd frontend
-npm install
-```
-
-Create `frontend/.env`:
-```env
-VITE_API_BASE_URL=http://localhost:3000/api/v1
-```
-
-Start the Vite development server:
-```bash
+npm ci
+Copy-Item .env.example .env
 npm run dev
-# Frontend running at http://localhost:5173
 ```
 
----
+The template sets `VITE_API_BASE_URL=http://localhost:3000/api/v1`. Open the URL Vite prints, normally [localhost:5173](http://localhost:5173).
 
-## 🌐 Production Deployment
+> **Demo authentication:** With `OTP_MODE=phone_last4`, the code is the phone number's last four digits. This is a demo convenience and does not verify phone ownership. Use synthetic data for demos. Production authentication must use random SMS OTPs and reject demo mode at startup.
 
-**Current free-tier live stack**
-- Frontend: [khata-gst.vercel.app](https://khata-gst.vercel.app)
-- Backend: [khatagst.onrender.com](https://khatagst.onrender.com) (`FRONTEND_URL` / CORS allow Vercel)
-- DB: Neon Postgres · OTP: `phone_last4` until SMS paid
+### 4. Explore the product
 
-### Backend (Render free — active)
-1. New Web Service from this repo · Root: `backend` · Build: `npm install && npm run build` · Start: `node dist/index.js`
-2. Env: `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET` (≥32), `OTP_MODE=phone_last4`, `GEMINI_API_KEY`, `FRONTEND_URL=https://khata-gst.vercel.app`
-3. Health: `GET /health`
+Sign in, onboard a business, create a sale invoice, and scan a purchase bill. Review the extraction, import GSTR-2B JSON on Reconcile, compute return summaries, and download an export. Marking a return **prepared**, including via the legacy `/file` endpoint, does not file it with GSTN.
 
-### Frontend (Vercel)
-1. Import repo · Root Directory: `frontend` · Framework: Vite
-2. Env (optional if prod fallback baked): `VITE_API_BASE_URL=https://khatagst.onrender.com/api/v1`
-3. Deploy → production URL `https://khata-gst.vercel.app`
+## Development checks
 
-### Railway (optional paid)
-Use included `railway.toml` if you prefer always-on hosting instead of Render free cold starts.
+Run commands from the corresponding application directory:
 
----
+| Application | Commands | Purpose |
+| --- | --- | --- |
+| Backend | `npm test` | Existing tax, reconciliation, classifier, OTP, and helper tests |
+| Backend | `npm run build` | TypeScript compilation |
+| Frontend | `npm run lint` | ESLint checks |
+| Frontend | `npm run build` | TypeScript checks and production bundle |
 
-## 🗺️ Vision & Future Roadmap
+These checks do not establish production security, statutory accuracy, or GST portal acceptance. See the [readiness plan](docs/ENTERPRISE_READINESS.md) for release gates.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         KHATA-GST STRATEGIC ROADMAP                         │
-└─────────────────────────────────────────────────────────────────────────────┘
+## API overview
 
-  PHASE 1: FOUNDATION & HARDENING [COMPLETED ✅]
-  ├── Fastify + TypeScript Monorepo Restructure (backend/ & frontend/)
-  ├── Database-Driven RBAC & Immutable Compliance Audit Logging
-  ├── Multimodal Gemini Bill OCR with Paise Integer Arithmetic
-  ├── Cloudflare R2 / AWS S3 Storage Integration with Local Fallback
-  ├── Per-Phone OTP Rate Limiting & Cooldown Protection
-  └── Sentry Error Monitoring & DB-Probing /health Endpoint
+The API lives under `/api/v1`. Use the [route source](backend/src/routes) alongside [Swagger UI](http://localhost:3000/api/docs); schema coverage varies by route.
 
-  PHASE 2: STATUTORY INTELLIGENCE & AI CA COPILOT [ACTIVE 🚀]
-  ├── pgvector Statutory Knowledge Retrieval on CGST/SGST Acts
-  ├── Autonomous Section 17(5) Blocked Credit Classifier
-  ├── Rule 88A ITC Set-Off Optimization & Rule 86B 1% Cash Guard
-  └── Conversational AI CA Copilot Workspace for MSMEs
+| Route group | Responsibility |
+| --- | --- |
+| `/auth` | OTP requests, verification, profile, and account deletion |
+| `/businesses`, `/parties`, `/invoices` | Business records and invoice lifecycle |
+| `/scans` | Upload, scan results, and extraction retries |
+| `/reconcile` | GSTR-2B imports, matching, and local review decisions |
+| `/returns` | Compute, recompute, list, and prepare summaries |
+| `/export` | Excel, CSV, and JSON working-data exports |
+| `/ai-ca` | Knowledge-assisted questions, classification, and invoice audit |
+| `/gst-rates`, `/compliance` | Rate lookup, HSN suggestions, usage, and nudges |
+| `/payments`, `/admin` | Subscription payments and administrative views |
 
-  PHASE 3: CONNECTED BANKING & AUTOMATED TAX ESCROW [NEXT ⏳]
-  ├── Open Banking / Account Aggregator API Integration (Setu / Decentro)
-  ├── Autonomous Daily Tax Escrow Reserve Calculation
-  ├── Real-time GSTR-2B Vendor ITC Matching & Discrepancy Alerts
-  └── Automated WhatsApp Vendor Payment & Invoicing Bot
+## Deployment
 
-  PHASE 4: FULL AUTONOMOUS CA AGENT [VISION 🔮]
-  ├── Direct GSTN API One-Click Live Filing (via licensed GSP/ASP)
-  ├── Autonomous Tax Payment Execution via Connected Virtual Accounts
-  └── AI Departmental Notice Defense & Scrutiny Response Generator
-```
+The repository includes Vercel frontend and Render backend configuration, with Railway as an alternative. The demo URLs above are project entry points, not uptime guarantees.
 
----
+| Component | Configuration |
+| --- | --- |
+| Frontend | Root `frontend`; build `npm run build`; output `dist`; SPA rewrite in `frontend/vercel.json` |
+| Backend | Root `backend`; build `npm ci && npm run build`; start `npm start`; health path `/health` |
+| Database | Configure `DATABASE_URL` and apply pending migrations separately |
+| Browser API URL | Set `VITE_API_BASE_URL=https://YOUR_BACKEND/api/v1` before the frontend build |
+| Backend origin | Set `FRONTEND_URL`; review additional CORS defaults in `backend/src/index.ts` |
+| Documents | Configure R2 or S3; local fallback is unsuitable for durable production storage |
 
-## 🛡️ Disaster Recovery & Backups
+**Before serving real customer data:** close the P0 items in the [readiness plan](docs/ENTERPRISE_READINESS.md), configure live SMS, private document access, production secrets, monitoring, and tested recovery. The checked-in Render blueprint currently enables demo OTP mode and must be changed for production use.
 
-KhataGST enforces enterprise business continuity standards:
-- **Continuous WAL Archiving**: Point-in-time recovery (PITR) up to 30 days via Neon PostgreSQL.
-- **Independent Dumps**: Periodic `pg_dump` exports stored in geographically isolated cloud buckets.
-- Full step-by-step restoration procedures are documented in [`docs/BACKUP_AND_RECOVERY.md`](file:///c:/Users/HP/OneDrive/Desktop/KhataGST/docs/BACKUP_AND_RECOVERY.md).
+## Enterprise roadmap
 
----
+The next milestone is a secure, reliable multi-business platform. Strengthen the modular backend's boundaries before introducing more infrastructure.
 
-## 👤 Author & Credits
+| Priority | Focus | Required outcome |
+| --- | --- | --- |
+| **P0 · Before customer use** | Access isolation, authentication, payment integrity, document privacy | Owners cannot access platform admin data or another business's invoices; payments cannot grant unpurchased plans |
+| **P1 · Before enterprise pilots** | Tenant memberships, approvals, durable jobs, audit evidence, recovery, CI | Consistent permissions; long tasks survive restarts; changes and recovery are verifiable |
+| **P2 · Controlled expansion** | GSP integration, versioned tax rules, enterprise identity, measured scale | Filing has explicit approvals and confirmed receipts; load and AI quality have measurable acceptance criteria |
 
-**Siddharth (btw-itz-sid)**  
-*Founder & Lead Architect, KhataGST*  
-- GitHub: [@btw-itz-sid](https://github.com/btw-itz-sid)  
-- Repository: [github.com/btw-itz-sid/KhataGST](https://github.com/btw-itz-sid/KhataGST)
+Read the **[source-based enterprise readiness plan](docs/ENTERPRISE_READINESS.md)** for concrete gaps, target architecture, and acceptance checks. The older [launch vision](LAUNCH_AND_ENTERPRISE_ROADMAP.md) contains aspirational designs and is not an implementation status report.
+
+## Project resources
+
+- [Enterprise readiness and target architecture](docs/ENTERPRISE_READINESS.md)
+- [Deployment walkthrough and demo smoke test](docs/LIVE_CHECKLIST.md) — includes demo settings; apply the production gates above.
+- [Backup and recovery runbook](docs/BACKUP_AND_RECOVERY.md) — verify provider retention and measure restore results for your deployment.
+- [Sample GSTR-1 workbook](docs/samples/GSTR1_2026-03.xlsx)
+- [Repository](https://github.com/btw-itz-sid/KhataGST) · [Siddharth / @btw-itz-sid](https://github.com/btw-itz-sid)
 
 ---
 
-## 📄 License
+<div align="center">
 
-This project is proprietary and confidential. All rights reserved © 2026 KhataGST.
+**Built for the work between receiving a bill and preparing a return.**
+
+Proprietary project · All rights reserved © 2026 KhataGST.
+
+</div>
