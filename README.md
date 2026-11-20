@@ -14,7 +14,7 @@ AI-assisted bookkeeping, purchase reconciliation, and GST return preparation for
 
 **[Open demo](https://khata-gst.vercel.app) · [API health](https://khatagst.onrender.com/health) · [API docs](https://khatagst.onrender.com/api/docs)**
 
-[Overview](#overview) · [Features](#features) · [Architecture](#architecture) · [Quick start](#quick-start) · [Enterprise roadmap](#enterprise-roadmap)
+[Overview](#overview) · [Features](#features) · [Architecture](#architecture) · [Quick start](#quick-start) · [Deployment](#deployment)
 
 </div>
 
@@ -164,7 +164,7 @@ KhataGST/
 │   ├── src/scripts/           Knowledge embedding seed script
 │   ├── db/migrations/         Ordered SQL migrations: 001–009
 │   └── test/                  Tax, reconciliation, classifier, helper tests
-├── docs/                     Operations guides and enterprise readiness plan
+├── docs/                     Operations guides and sample exports
 ├── render.yaml               Backend deployment blueprint
 └── railway.toml              Alternative backend deployment configuration
 ```
@@ -258,7 +258,7 @@ Run commands from the corresponding application directory:
 | Frontend | `npm run lint` | ESLint checks |
 | Frontend | `npm run build` | TypeScript checks and production bundle |
 
-These checks do not establish production security, statutory accuracy, or GST portal acceptance. See the [readiness plan](docs/ENTERPRISE_READINESS.md) for release gates.
+These checks do not establish production security, statutory accuracy, or GST portal acceptance.
 
 ## API overview
 
@@ -289,24 +289,11 @@ The repository includes Vercel frontend and Render backend configuration, with R
 | Backend origin | Set `FRONTEND_URL`; review additional CORS defaults in `backend/src/index.ts` |
 | Documents | Configure R2 or S3; local fallback is unsuitable for durable production storage |
 
-**Before serving real customer data:** close the P0 items in the [readiness plan](docs/ENTERPRISE_READINESS.md), configure live SMS, private document access, production secrets, monitoring, and tested recovery. The checked-in Render blueprint currently enables demo OTP mode and must be changed for production use.
-
-## Enterprise roadmap
-
-The next milestone is a secure, reliable multi-business platform. Strengthen the modular backend's boundaries before introducing more infrastructure.
-
-| Priority | Focus | Required outcome |
-| --- | --- | --- |
-| **P0 · Before customer use** | Access isolation, authentication, payment integrity, document privacy | Owners cannot access platform admin data or another business's invoices; payments cannot grant unpurchased plans |
-| **P1 · Before enterprise pilots** | Tenant memberships, approvals, durable jobs, audit evidence, recovery, CI | Consistent permissions; long tasks survive restarts; changes and recovery are verifiable |
-| **P2 · Controlled expansion** | GSP integration, versioned tax rules, enterprise identity, measured scale | Filing has explicit approvals and confirmed receipts; load and AI quality have measurable acceptance criteria |
-
-Read the **[source-based enterprise readiness plan](docs/ENTERPRISE_READINESS.md)** for concrete gaps, target architecture, and acceptance checks. The older [launch vision](LAUNCH_AND_ENTERPRISE_ROADMAP.md) contains aspirational designs and is not an implementation status report.
+**Before serving real customer data:** configure live SMS, private document access, production secrets, monitoring, and tested recovery, and validate access controls and payment handling. The checked-in Render blueprint currently enables demo OTP mode and must be changed for production use.
 
 ## Project resources
 
-- [Enterprise readiness and target architecture](docs/ENTERPRISE_READINESS.md)
-- [Deployment walkthrough and demo smoke test](docs/LIVE_CHECKLIST.md) — includes demo settings; apply the production gates above.
+- [Deployment walkthrough and demo smoke test](docs/LIVE_CHECKLIST.md) — includes demo settings; review production configuration before launch.
 - [Backup and recovery runbook](docs/BACKUP_AND_RECOVERY.md) — verify provider retention and measure restore results for your deployment.
 - [Sample GSTR-1 workbook](docs/samples/GSTR1_2026-03.xlsx)
 - [Repository](https://github.com/btw-itz-sid/KhataGST) · [Siddharth / @btw-itz-sid](https://github.com/btw-itz-sid)

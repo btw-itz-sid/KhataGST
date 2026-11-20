@@ -22,6 +22,7 @@ backend/dist/
 frontend/dist/
 
 # Internal roadmaps & progress documents (keep local only)
+docs/ENTERPRISE_READINESS.md
 PROGRESS.md
 LAUNCH_AND_ENTERPRISE_ROADMAP.md
 *ROADMAP*.md
